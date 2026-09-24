@@ -11,6 +11,7 @@ Fremium is a Spicetify CustomApp for music discovery, listening insights, and pl
 - Deep Cut Finder and multi-tag Genre Fusion
 - Music Roulette and timestamp-based Time Machine
 - AI playlist prompts, mood playlists, and similarity discovery
+- Natural-language AI references to artists, tracks, playlist names, and Spotify playlist links
 - Queue Intelligence UI and local learning data
 - Persistent full-size window with all tabs
 - Draggable header, resizable lower-right corner, and saved layout
@@ -81,6 +82,17 @@ Fremium does not include API credentials. Create a Last.fm API account at [Last.
 - API secret
 
 Credentials are stored locally with `Spicetify.LocalStorage` and are not written to this repository.
+
+## AI Prompt References
+
+The AI tab understands natural-language references such as:
+
+- `Give me songs like I'm butterbean`
+- `Play songs by The B-52's`
+- `Play the Roadtrip playlist`
+- A pasted Spotify playlist link
+
+Playlist names are searched in your Spotify library first, then public Spotify playlist results. Playlist tracks are queued in playlist order and still use Fremium's duplicate and AI-history filtering.
 
 ## Queue Intelligence Saves
 

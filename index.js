@@ -205,19 +205,19 @@ function searchName(value) {
     .trim();
 }
 function getTrackUri(track) {
-  return track?.uri || track?.item?.uri || track?.metadata?.uri || track?.metadata?.item_uri || track?.link || "";
+  return track?.uri || track?.track?.uri || track?.item?.uri || track?.metadata?.uri || track?.metadata?.item_uri || track?.link || "";
 }
 function getTrackArtistText(track) {
-  const artists = track?.artists || track?.item?.artists || track?.metadata?.artists;
+  const artists = track?.artists || track?.track?.artists || track?.item?.artists || track?.metadata?.artists;
   if (Array.isArray(artists)) {
     return artists.map(artist => typeof artist === "string" ? artist : artist?.name || artist?.profile?.name || "").filter(Boolean).join(" ");
   }
-  return track?.artist?.name || track?.artist?.["#text"] || track?.artist || track?.metadata?.artist_name || "";
+  return track?.artist?.name || track?.artist?.["#text"] || track?.artist || track?.track?.artist?.name || track?.track?.artist?.["#text"] || track?.item?.artist?.name || track?.item?.artist?.["#text"] || track?.metadata?.artist_name || "";
 }
 function getTrackKeys(track) {
   const keys = [];
   const uri = getTrackUri(track);
-  const name = searchName(track?.name || track?.title || track?.track);
+  const name = searchName(getTrackName(track));
   const artist = searchName(getTrackArtistText(track));
   if (uri) keys.push(`uri:${uri}`);
   if (name) keys.push(`track:${artist}|${name}`);
@@ -262,18 +262,23 @@ function extractAiTags(text) {
     "indie folk", "indie rock", "indie pop", "dream pop", "shoegaze", "post punk",
     "alternative rock", "folk rock", "folk", "indie", "rock", "pop", "jazz", "blues",
     "classical", "electronic", "ambient", "chill", "hip hop", "rap", "metal", "punk",
+    "happy", "sad", "romantic", "energetic", "dance", "workout", "study", "focus", "sleep",
+    "party", "driving", "dreamy", "mellow", "aggressive", "emotional", "feel good", "feel bad",
   ];
   const stopWords = new Set([
-    "make", "me", "a", "an", "the", "playlist", "mix", "music", "song", "songs", "track", "tracks",
-    "for", "of", "with", "and", "but", "like", "this", "that", "listening", "listen", "to", "in", "on",
-    "hour", "hours", "hr", "hrs", "duration", "mixes", "mixed", "vibe", "vibes", "sounds", "sound",
-    "late", "night", "what", "should", "give", "something",
+    "make", "makes", "making", "give", "put", "generate", "find", "recommend", "me", "my", "i", "im",
+    "a", "an", "the", "playlist", "mix", "music", "song", "songs", "track", "tracks", "for", "of",
+    "with", "and", "but", "like", "this", "that", "these", "those", "listening", "listen", "to", "in",
+    "on", "hour", "hours", "hr", "hrs", "duration", "mixes", "mixed", "vibe", "vibes", "sounds", "sound",
+    "late", "night", "what", "should", "something", "anything", "feel", "feels", "feeling", "feelings",
+    "feels", "mood", "way", "one", "us", "we", "you", "your", "from", "use", "used", "based", "inspired",
+    "darker", "lighter", "im", "i'm", "lets", "let", "get", "go", "can", "could", "would", "will",
   ]);
   const tags = [];
   for (const phrase of phrases) {
     if (normalized.includes(phrase)) {
       tags.push(phrase);
-      phrase.split(" ").forEach(part => tags.push(part));
+      phrase.split(" ").forEach(part => { if (!stopWords.has(part)) tags.push(part); });
     }
   }
   normalized
@@ -308,7 +313,7 @@ function normalizeSearchItem(item, type) {
   const album = data.album || data.albumOfTrack || null;
   return {
     ...data,
-    uri: data.uri,
+    uri: data.uri || (type === "playlist" && data.id ? `spotify:playlist:${data.id}` : data.uri),
     name: data.name || data.title || "",
     artists,
     images,
@@ -322,7 +327,7 @@ function normalizeSearchItem(item, type) {
   };
 }
 function searchItemsFromConnection(response, type) {
-  const key = type === "track" ? "tracksV2" : type === "album" ? "albumsV2" : null;
+  const key = type === "track" ? "tracksV2" : type === "album" ? "albumsV2" : type === "playlist" ? "playlistsV2" : null;
   const connection = key ? response?.data?.searchV2?.[key] : null;
   if (connection?.items) return connection.items.map(entry => normalizeSearchItem(entry?.item || entry, type)).filter(Boolean);
   const items = response?.data?.searchV2?.topResultsV2?.itemsV2 || [];
@@ -337,7 +342,9 @@ async function graphqlSearch(query, type) {
     ? definitions.searchTracks
     : type === "album"
       ? definitions.searchAlbums
-      : null;
+      : type === "playlist"
+        ? (definitions.searchPlaylists || definitions.searchPlaylistsV2)
+        : null;
   const fallbackDefinition = definitions.searchDesktop || definitions.searchModalResults;
   const definitionsToTry = categoryDefinition && fallbackDefinition
     ? [categoryDefinition, fallbackDefinition]
@@ -509,6 +516,254 @@ async function spotifyPlay(query, type="album") {
     if (item?.uri) return item.uri;
   }
   return null;
+}
+
+function unwrapCosmosBody(response) {
+  const body = response?.body ?? response;
+  if (typeof body === "string") {
+    try { return JSON.parse(body); } catch {}
+  }
+  return body || {};
+}
+
+function getPlaylistId(value) {
+  const raw = String(value || "");
+  const uriMatch = raw.match(/spotify:(?:playlist|playlist-v2):([a-zA-Z0-9]+)/i);
+  if (uriMatch) return uriMatch[1];
+  const urlMatch = raw.match(/open\.spotify\.com\/(?:playlist|user\/[^/]+\/playlist)\/([a-zA-Z0-9]+)/i);
+  if (urlMatch) return urlMatch[1];
+  if (/^[a-zA-Z0-9]{22}$/.test(raw)) return raw;
+  try {
+    const parsed = URI.from(raw);
+    if (parsed?.id) return parsed.id;
+  } catch {}
+  return "";
+}
+
+function playlistSearchScore(query, item) {
+  const q = searchName(query);
+  const name = searchName(item?.name);
+  let score = 0;
+  if (q && name === q) score = 100;
+  else if (q && name.includes(q)) score = 65;
+  else if (q && name && q.includes(name)) score = 45;
+  const owner = searchName(item?.owner?.displayName || item?.owner?.name || item?.owner?.profile?.name || "");
+  if (owner && q.includes(owner)) score += 20;
+  if (item?.uri || item?.id) score += 2;
+  return score;
+}
+
+function responsePlaylistItems(response) {
+  const body = unwrapCosmosBody(response);
+  const collection = body?.tracks || body?.playlist?.tracks || body?.data?.tracks || body?.data || body;
+  const items = Array.isArray(collection) ? collection : collection?.items || body?.items || [];
+  return (Array.isArray(items) ? items : []).map(item => item?.track || item?.item || item).filter(Boolean);
+}
+
+async function getSpotifyUserPlaylists() {
+  const found = [];
+  const library = Platform?.LibraryAPI || Spicetify.Platform?.LibraryAPI;
+  const methodNames = ["getPlaylists", "getUserPlaylists", "getAllPlaylists"];
+  for (const name of methodNames) {
+    const method = library?.[name];
+    if (typeof method !== "function") continue;
+    for (const args of [[], [{ limit: 100 }], [100]]) {
+      try {
+        const response = await method(...args);
+        found.push(...responsePlaylistItems(response));
+        if (found.length) break;
+      } catch {}
+    }
+    if (found.length) break;
+  }
+  if (!found.length) {
+    const endpoints = [
+      "https://api.spotify.com/v1/me/playlists?limit=50&offset=0",
+      "sp://core/collection/v1/collection/playlists?limit=100",
+    ];
+    for (const endpoint of endpoints) {
+      try {
+        const response = await CosmosAsync.get(endpoint);
+        found.push(...responsePlaylistItems(response));
+        if (found.length) break;
+      } catch {}
+    }
+  }
+  return found.map(item => normalizeSearchItem(item, "playlist")).filter(Boolean);
+}
+
+async function spotifyPlaylistSearch(query) {
+  const cleanQuery = String(query || "").trim();
+  if (!cleanQuery) return [];
+  const items = [...await getSpotifyUserPlaylists()];
+  let publicItems = await graphqlSearch(cleanQuery, "playlist");
+  if (!publicItems.length) publicItems = await cosmosSearch(cleanQuery, "playlist");
+  items.push(...publicItems);
+  const unique = new Map();
+  items.forEach(item => {
+    const key = item?.uri || item?.id || `${item?.name || ""}|${item?.owner?.id || ""}`;
+    if (key && !unique.has(key)) unique.set(key, item);
+  });
+  return [...unique.values()].sort((a, b) => playlistSearchScore(cleanQuery, b) - playlistSearchScore(cleanQuery, a));
+}
+
+async function getSpotifyPlaylistTracks(playlist, limit=100) {
+  const playlistUri = playlist?.uri || (playlist?.id ? `spotify:playlist:${playlist.id}` : "");
+  const id = getPlaylistId(playlistUri || playlist?.id || "");
+  if (!id) return [];
+  const maxTracks = Math.min(500, Math.max(100, limit * 2));
+  const collected = [];
+  const addResponse = response => {
+    const items = responsePlaylistItems(response);
+    items.forEach(item => collected.push({
+      ...item,
+      name: getTrackName(item),
+      artist: getTrackArtistText(item),
+      uri: getTrackUri(item),
+    }));
+  };
+  for (const endpoint of [
+    `https://api.spotify.com/v1/playlists/${id}/items?limit=100&offset=0&additional_types=track`,
+    `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100&offset=0`,
+  ]) {
+    let offset = 0;
+    while (offset < maxTracks && collected.length < maxTracks) {
+      const url = endpoint.replace(/offset=0/, `offset=${offset}`);
+      try {
+        const response = await CosmosAsync.get(url);
+        addResponse(response);
+        const body = unwrapCosmosBody(response);
+        const items = responsePlaylistItems(response);
+        if (!items.length || !body?.next) break;
+        offset += items.length || 100;
+      } catch {
+        break;
+      }
+    }
+    if (collected.length) break;
+  }
+  if (!collected.length) {
+    const api = Platform?.PlaylistAPI || Spicetify.Platform?.PlaylistAPI;
+    for (const name of ["getTracks", "getPlaylistTracks", "getItems", "getPlaylistItems", "getPlaylist"]) {
+      const method = api?.[name];
+      if (typeof method !== "function") continue;
+      for (const args of [[playlistUri || id], [playlistUri || id, { limit: 100, offset: 0 }], [id, 100, 0]]) {
+        try {
+          const response = await method(...args);
+          addResponse(response);
+          if (collected.length) break;
+        } catch {}
+      }
+      if (collected.length) break;
+    }
+  }
+  return uniqueTracks(collected).slice(0, maxTracks);
+}
+
+function getTrackName(track) {
+  return track?.name || track?.title || track?.track?.name || track?.item?.name || track?.metadata?.title || "";
+}
+
+function cleanAiReferenceValue(value) {
+  return String(value || "")
+    .replace(/[?!.]+$/g, "")
+    .replace(/^[\s"'“”‘’`]+|[\s"'“”‘’`]+$/g, "")
+    .replace(/^(?:i\s*(?:am|[’']m)\s+|im\b\s+|i\s+feel\s+like\s+|i\s+feel\s+|feeling\s+like\s+|feel(?:ing)?\s+like\s+|make\s+me\s+feel\s+like\s+|music\s+that\s+makes\s+me\s+feel\s+like\s+|something\s+like\s+|songs?\s+like\s+|tracks?\s+like\s+)/i, "")
+    .replace(/^(?:the\s+)?(?:song|track)\s+/i, "")
+    .replace(/^(?:that\s+|which\s+)/i, "")
+    .trim();
+}
+
+function parseAiReferenceValue(value, currentTrack) {
+  const clean = cleanAiReferenceValue(value);
+  if (!clean) return null;
+  if (/^(?:this|this song|this track|current(?: song| track)?)$/i.test(clean)) {
+    return { track: getTrackName(currentTrack), artist: getTrackArtistText(currentTrack) };
+  }
+  const dashParts = clean.split(/\s+[—-]\s+/);
+  if (dashParts.length > 1) return { track: dashParts[0].trim(), artist: dashParts.slice(1).join(" ").trim() };
+  const byMatch = clean.match(/^(.+?)\s+by\s+(.+)$/i);
+  if (byMatch) return { track: byMatch[1].trim(), artist: byMatch[2].trim() };
+  return { track: clean, artist: "" };
+}
+
+function parseAiPrompt(text, currentTrack) {
+  const raw = String(text || "").trim();
+  const lower = raw.toLowerCase();
+  const linkMatch = raw.match(/(?:https?:\/\/open\.spotify\.com\/(?:playlist|user\/[^/]+\/playlist)|spotify:(?:playlist|playlist-v2):)([a-zA-Z0-9]+)/i);
+  const explicitPlaylistMatch = raw.match(/\bplaylist\s+(?:(?:called|named|titled)\s+)?(.+?)(?=\s+playlist\b|[,.!?]|$)/i);
+  const beforePlaylistMatch = raw.match(/\b(?:from|use|using|play|queue|load|based on|inspired by)\s+(.+?)\s+playlist\b/i);
+  const fromMatch = raw.match(/\b(?:from|use|using|play|queue|based on|inspired by)\s+(.+?)(?=\s+playlist\b|[,.!?]|$)/i);
+  const playlistQuery = linkMatch ? linkMatch[0] : (explicitPlaylistMatch?.[1] || beforePlaylistMatch?.[1] || null);
+  const similarMatch = raw.match(/\b(?:songs?|music|tracks?)?\s*(?:like|sounds? like|feels? like|in the style of|similar to|inspired by|based on)\s+(.+?)(?=\s+(?:but|with|for|that|which)\b|[,.!?]|$)/i);
+  const similar = similarMatch ? parseAiReferenceValue(similarMatch[1], currentTrack) : null;
+  const artistMatch = raw.match(/\b(?:songs?|music|tracks?|artists?)\s+(?:by|from)\s+(.+?)(?=\s+(?:but|with|for|that|which)\b|[,.!?]|$)/i);
+  const artistQuery = artistMatch ? cleanAiReferenceValue(artistMatch[1]) : "";
+  return {
+    playlistQuery: playlistQuery ? cleanAiReferenceValue(playlistQuery) : "",
+    fromQuery: fromMatch ? cleanAiReferenceValue(fromMatch[1]) : "",
+    explicitPlaylist: Boolean(linkMatch || explicitPlaylistMatch || beforePlaylistMatch || /\bplaylist\b/i.test(lower)),
+    similar,
+    artistQuery,
+  };
+}
+
+async function spotifySearchMany(query, type) {
+  const cleanQuery = String(query || "").trim();
+  if (!cleanQuery) return [];
+  let items = await graphqlSearch(cleanQuery, type);
+  if (!items.length) items = await cosmosSearch(cleanQuery, type);
+  return items;
+}
+
+async function getSpotifyArtistTopTracks(artistQuery, limit) {
+  const artist = await spotifySearch(artistQuery, "artist").catch(() => null);
+  const id = String(artist?.uri || "").match(/spotify:artist:([a-zA-Z0-9]+)/i)?.[1] || artist?.id;
+  if (!id) return [];
+  for (const market of ["US", "GB", "CA", "AU"]) {
+    try {
+      const response = await CosmosAsync.get(`https://api.spotify.com/v1/artists/${id}/top-tracks?market=${market}&limit=${Math.min(50, Math.max(10, limit))}`);
+      const body = unwrapCosmosBody(response);
+      const tracks = body?.tracks || [];
+      if (tracks.length) return tracks.slice(0, limit).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
+    } catch {}
+  }
+  return [];
+}
+
+async function getSimilarAiTracks(reference, currentTrack, targetCount) {
+  if (!reference) return [];
+  const trackName = reference.track || "";
+  let artist = reference.artist || "";
+  const spotifyTrack = trackName ? await spotifySearch(`${trackName}${artist ? ` ${artist}` : ""}`, "track").catch(() => null) : null;
+  artist = artist || getTrackArtistText(spotifyTrack) || "";
+  if (trackName && artist) {
+    const similar = await lfmFetch({ method: "track.getSimilar", artist, track: trackName, limit: String(Math.min(50, Math.max(10, targetCount))) }).catch(() => null);
+    const list = similar?.similartracks?.track || [];
+    if (list.length) return list.slice(0, targetCount).map(track => ({ name: track.name, artist: track.artist?.name || artist }));
+  }
+  if (artist) {
+    const top = await lfmFetch({ method: "artist.getTopTracks", artist, limit: String(Math.min(50, Math.max(10, targetCount))) }).catch(() => null);
+    const list = top?.toptracks?.track || [];
+    if (list.length) return list.slice(0, targetCount).map(track => ({ name: track.name, artist: track.artist?.name || artist }));
+  }
+  if (trackName) {
+    const related = await spotifySearchMany(`${trackName}${artist ? ` ${artist}` : ""}`, "track");
+    if (related.length) return related.slice(0, targetCount).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
+  }
+  if (artist) {
+    const top = await getSpotifyArtistTopTracks(artist, targetCount);
+    if (top.length) return top;
+  }
+  if (spotifyTrack) return [{ ...spotifyTrack, name: getTrackName(spotifyTrack), artist: getTrackArtistText(spotifyTrack) }];
+  if (!trackName && !artist && currentTrack) {
+    const similar = await lfmFetch({ method: "track.getSimilar", artist: getTrackArtistText(currentTrack), track: getTrackName(currentTrack), limit: String(Math.min(50, Math.max(10, targetCount))) }).catch(() => null);
+    const list = similar?.similartracks?.track || [];
+    if (list.length) return list.slice(0, targetCount).map(track => ({ name: track.name, artist: track.artist?.name || getTrackArtistText(currentTrack) }));
+    const related = await spotifySearchMany(`${getTrackName(currentTrack)} ${getTrackArtistText(currentTrack)}`, "track");
+    if (related.length) return related.slice(0, targetCount).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
+  }
+  return [];
 }
 
 // ---------- Queue Intelligence data ----------
@@ -1544,50 +1799,52 @@ function AITab({ onGoLfm }) {
   const cur = Player.data?.item;
   const curDesc = cur ? `${cur.name} — ${cur.artists?.[0]?.name||""}` : "nothing playing";
 
-  const parseReference = useCallback(() => {
-    const text = prompt.trim();
-    const match = text.match(/(?:like|songs? like)\s+(.+?)(?:\s+but\b|\s+that\b|\s+but darker\b|$)/i);
-    if (!match) return null;
-    const value = match[1].trim().replace(/[?.!]+$/, "");
-    if (!value || /^this$/i.test(value)) {
-      return cur ? { artist: cur.artists?.[0]?.name || cur.metadata?.artist_name || "", track: cur.name } : null;
-    }
-    const dashParts = value.split(/\s+[—-]\s+/);
-    if (dashParts.length > 1) return { track: dashParts[0].trim(), artist: dashParts.slice(1).join(" ").trim() };
-    const byMatch = value.match(/^(.+?)\s+by\s+(.+)$/i);
-    if (byMatch) return { track: byMatch[1].trim(), artist: byMatch[2].trim() };
-    const parts = value.split(/\s+/);
-    return { track: value, artist: parts.length > 1 ? parts.slice(0, -1).join(" ") : cur?.artists?.[0]?.name || "" };
-  }, [prompt, cur]);
-
   const generate = useCallback(async () => {
-    if (!lfmOk) { showNotification("Connect Last.fm", true); return; }
     if (!prompt.trim()) { showNotification("Enter a prompt first", true); return; }
+    const initialIntent = parseAiPrompt(prompt, cur);
+    const hasPlaylistSource = Boolean(initialIntent.playlistQuery || (!initialIntent.similar && initialIntent.fromQuery));
+    if (!lfmOk && !hasPlaylistSource && !initialIntent.similar && !initialIntent.artistQuery) { showNotification("Connect Last.fm for tag-based recommendations", true); return; }
     setLoading(true); setResults(null);
     try {
       const p = prompt.toLowerCase();
+      const intent = parseAiPrompt(prompt, cur);
       let tracks = [];
+      let sourceName = "";
       const durationMatch = p.match(/(\d+)\s*-?\s*(?:hours?|hrs?)/);
       const requestedHours = durationMatch ? parseInt(durationMatch[1], 10) : null;
       const requestedTags = extractAiTags(p);
       const targetTrackCount = requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15;
-      // "like this but darker" -> similar to current
-      if (p.includes("like ") || p.includes("songs like")) {
-        const reference = parseReference();
-        if (reference?.track) {
-          const artist = reference.artist || cur?.artists?.[0]?.name || cur?.metadata?.artist_name || "";
-          const sim = await lfmFetch({ method: "track.getSimilar", artist, track: reference.track, limit: "20" }).catch(()=>null);
-          tracks = (sim?.similartracks?.track || []).map(t=> ({ name: t.name, artist: t.artist.name }));
-          if (p.includes("darker")) {
-            const dark = await lfmFetch({ method: "tag.getTopTracks", tag: "dark", limit: "20" }).catch(()=>null);
-            const darkSet = new Set((dark?.tracks?.track||[]).map(x=> x.name.toLowerCase()));
-            const filtered = tracks.filter(t=> darkSet.has(t.name.toLowerCase()));
-            if (filtered.length >= 3) tracks = filtered;
-            else if (!tracks.length) tracks = (dark?.tracks?.track||[]).slice(0,8).map(t=>({name:t.name, artist:t.artist.name}));
-          }
+      const playlistQuery = intent.playlistQuery || (!intent.similar && intent.fromQuery ? intent.fromQuery : "");
+      if (playlistQuery) {
+        const directId = getPlaylistId(playlistQuery);
+        let playlist = directId ? { id: directId, uri: `spotify:playlist:${directId}`, name: playlistQuery } : null;
+        if (!playlist) {
+          const candidates = await spotifyPlaylistSearch(playlistQuery);
+          if (candidates[0] && playlistSearchScore(playlistQuery, candidates[0]) >= 40) playlist = candidates[0];
+        }
+        if (playlist) {
+          sourceName = playlist.name || playlistQuery;
+          tracks = await getSpotifyPlaylistTracks(playlist, targetTrackCount);
         }
       }
-      else if (requestedTags.length || p.includes("late") || p.includes("night") || p.includes("hour")) {
+      if (!tracks.length && intent.similar) {
+        tracks = await getSimilarAiTracks(intent.similar, cur, targetTrackCount);
+        if (p.includes("darker")) {
+          const dark = await lfmFetch({ method: "tag.getTopTracks", tag: "dark", limit: "20" }).catch(() => null);
+          const darkSet = new Set((dark?.tracks?.track || []).map(track => track.name.toLowerCase()));
+          const filtered = tracks.filter(track => darkSet.has(track.name.toLowerCase()));
+          if (filtered.length >= 3) tracks = filtered;
+          else if (!tracks.length) tracks = (dark?.tracks?.track || []).slice(0, 8).map(track => ({ name: track.name, artist: track.artist.name }));
+        }
+      }
+      const artistSource = intent.artistQuery || (!intent.explicitPlaylist && !intent.similar && intent.fromQuery ? intent.fromQuery : "");
+      if (!tracks.length && artistSource) tracks = await getSimilarAiTracks({ track: "", artist: artistSource }, cur, targetTrackCount);
+      if (!tracks.length && (p.includes("what should") || p.includes("listen to"))) {
+        if (!lfmOk) throw new Error("Connect Last.fm for personalized listening suggestions");
+        const top = await lfmFetch({ method: "user.getTopTracks", user: getLfmConfig().user, period: "7day", limit: "40" }).catch(() => null);
+        tracks = (top?.toptracks?.track || []).sort(() => Math.random() - 0.5).slice(0, targetTrackCount).map(track => ({ name: track.name, artist: track.artist.name }));
+      }
+      if (!tracks.length && lfmOk && (requestedTags.length || p.includes("late") || p.includes("night") || p.includes("hour"))) {
         const tags = requestedTags.length ? requestedTags : [p.includes("late") || p.includes("night") ? "chill" : "indie"];
         const perTagLimit = Math.min(50, Math.max(10, Math.ceil(targetTrackCount / tags.length) + 8));
         for (const tag of tags) {
@@ -1598,69 +1855,62 @@ function AITab({ onGoLfm }) {
           if (tracks.length >= targetTrackCount) break;
         }
       }
-      // "what should i listen" -> random from top + loved
-      else if (p.includes("what should") || p.includes("listen to")) {
-        const top = await lfmFetch({ method: "user.getTopTracks", user: getLfmConfig().user, period: "7day", limit: "40" }).catch(()=>null);
-        const list = top?.toptracks?.track || [];
-        tracks = list.sort(()=>Math.random()-0.5).slice(0,8).map(t=>({name:t.name, artist:t.artist.name}));
-      }
-      // Default: treat prompt as tag + search
-      else {
-        const words = requestedTags.length ? requestedTags : prompt.split(/[,+]/).map(s=>s.trim()).filter(Boolean).slice(0,3);
-        for (const w of words) {
+      if (!tracks.length && lfmOk) {
+        const words = requestedTags.length ? requestedTags : prompt.split(/[,+]/).map(value => value.trim()).filter(Boolean).slice(0, 3);
+        for (const word of words) {
           try {
-            const r = await lfmFetch({ method: "tag.getTopTracks", tag: w, limit: String(Math.min(20, Math.max(5, targetTrackCount))) });
-            (r.tracks?.track||[]).slice(0, Math.min(20, Math.max(5, targetTrackCount))).forEach(t=> tracks.push({name:t.name, artist:t.artist.name}));
+            const result = await lfmFetch({ method: "tag.getTopTracks", tag: word, limit: String(Math.min(20, Math.max(5, targetTrackCount))) });
+            (result.tracks?.track || []).slice(0, Math.min(20, Math.max(5, targetTrackCount))).forEach(track => tracks.push({ name: track.name, artist: track.artist.name }));
           } catch {}
         }
         if (!tracks.length) {
-          const q = prompt.replace(/[^a-z0-9 ]/gi, " ").trim();
-          const r = await lfmFetch({ method: "artist.search", artist: q, limit: "1" }).catch(()=>null);
-          if (r?.results?.artistmatches?.artist?.[0]) {
-            const a = r.results.artistmatches.artist[0].name;
-            const tr = await lfmFetch({ method: "artist.getTopTracks", artist: a, limit: "8" }).catch(()=>null);
-            tracks = (tr?.toptracks?.track||[]).slice(0,8).map(t=>({name:t.name, artist:a}));
+          const artistSearch = await lfmFetch({ method: "artist.search", artist: prompt.replace(/[^a-z0-9 ]/gi, " ").trim(), limit: "1" }).catch(() => null);
+          const artist = artistSearch?.results?.artistmatches?.artist?.[0]?.name;
+          if (artist) {
+            const top = await lfmFetch({ method: "artist.getTopTracks", artist, limit: String(targetTrackCount) }).catch(() => null);
+            tracks = (top?.toptracks?.track || []).slice(0, targetTrackCount).map(track => ({ name: track.name, artist: track.artist.name || artist }));
           }
         }
       }
-      if (!tracks.length) throw new Error("No AI tracks found — try clearer prompt");
+      tracks = tracks.map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) })).filter(track => track.name && track.artist);
+      if (!tracks.length) throw new Error(playlistQuery ? `Could not find or load playlist "${playlistQuery}"` : "No AI tracks found — try clearer prompt");
       const excludedKeys = new Set([...getActiveTrackKeys(), ...getAiHistoryKeys()]);
       tracks = uniqueTracks(tracks, excludedKeys).slice(0, targetTrackCount);
       if (!tracks.length) throw new Error("No new AI tracks found — try a different prompt");
-      const out=[];
+      const out = [];
       const seenSpotifyUris = new Set();
       const seenSpotifyKeys = new Set();
-      for (const t of tracks) {
-        const item = await spotifySearch(`${t.name} ${t.artist}`, "track");
+      for (const track of tracks) {
+        const item = track.uri ? track : await spotifySearch(`${track.name} ${track.artist}`, "track");
         if (!item?.uri || seenSpotifyUris.has(item.uri)) continue;
         const itemKeys = getTrackKeys(item);
         if (itemKeys.some(key => seenSpotifyKeys.has(key))) continue;
         seenSpotifyUris.add(item.uri);
         itemKeys.forEach(key => seenSpotifyKeys.add(key));
-        out.push({ ...t, uri: item.uri, found: true });
+        out.push({ ...track, name: getTrackName(item) || track.name, artist: getTrackArtistText(item) || track.artist, uri: item.uri, found: true });
       }
       setResults(out);
-      const uris = out.filter(t => t.found).map(t => t.uri);
+      const uris = out.filter(track => track.found).map(track => track.uri);
       const firstUri = uris[0];
       if (firstUri) await clearUpcomingQueue();
       const queueResult = firstUri ? await addTracksToQueue(uris.slice(1)) : { queued: 0, total: 0, failed: [] };
       if (firstUri) {
         rememberAiTracks(out);
         await Player.playUri(firstUri);
-        showNotification(`AI: playing ${out[0].name} + queued ${queueResult.queued} more (${uris.length} total; prompt: "${prompt.slice(0,30)}")`);
-      }
-      else showNotification(`AI found ${out.length} tracks but none were available on Spotify`, true);
-      addTrainingEvent({ type: "ai_playlist", prompt, count: out.length, queued: queueResult.queued });
-    } catch(e){ showNotification(String(e.message||e), true); }
-    finally{ setLoading(false); }
-  }, [lfmOk, prompt, cur, parseReference]);
+        const sourceText = sourceName ? ` from ${sourceName}` : "";
+        showNotification(`AI${sourceText}: playing ${out[0].name} + queued ${queueResult.queued} more (${uris.length} total)`);
+      } else showNotification(`AI found ${out.length} tracks but none were available on Spotify`, true);
+      addTrainingEvent({ type: "ai_playlist", prompt, source: sourceName || null, count: out.length, queued: queueResult.queued });
+    } catch (e) { showNotification(String(e.message || e), true); }
+    finally { setLoading(false); }
+  }, [lfmOk, prompt, cur]);
 
   return react.createElement("div", { className:"fremium-tab" },
     react.createElement("h3", null, "AI Playlist Generator"),
-    !lfmOk ? react.createElement("div", {className:"fremium-notice"}, react.createElement("span", null, "Needs a Last.fm account and API key"), react.createElement("button", {className:"fremium-btn small primary", onClick:onGoLfm}, "Sign in")) :
-    react.createElement("p", {className:"fremium-hint"}, `Try: “Make me a 2-hour late-night playlist” or “Give me songs like ${curDesc} but darker” or “What should I listen to?” — via your Last.fm account.`),
+    !lfmOk ? react.createElement("div", {className:"fremium-notice"}, react.createElement("span", null, "Connect Last.fm for tag-based recommendations; playlist and reference prompts still work"), react.createElement("button", {className:"fremium-btn small primary", onClick:onGoLfm}, "Sign in")) :
+    react.createElement("p", {className:"fremium-hint"}, `Try: “Make me a 2-hour late-night playlist”, “Give me songs like ${curDesc} but darker”, or “Play the Roadtrip playlist” — playlist names and Spotify links are supported.`),
     react.createElement("div", {className:"fremium-row"},
-      react.createElement("input", {className:"fremium-input", style:{flex:1}, value:prompt, onChange:e=>setPrompt(e.target.value), placeholder:`e.g. late-night, like ${cur?cur.name:"this"} but darker, or shoegaze + hyperpop`}),
+      react.createElement("input", {className:"fremium-input", style:{flex:1}, value:prompt, onChange:e=>setPrompt(e.target.value), placeholder:`e.g. like I’m butterbean, play the Roadtrip playlist, or shoegaze + hyperpop`}),
       react.createElement("button", {className:"fremium-btn primary", onClick:generate, disabled:loading||!prompt.trim()}, loading?"…":"Generate")
     ),
     react.createElement("div", {className:"fremium-actions"},
