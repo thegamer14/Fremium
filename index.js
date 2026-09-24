@@ -327,12 +327,15 @@ function normalizeSearchItem(item, type) {
   };
 }
 function searchItemsFromConnection(response, type) {
-  const key = type === "track" ? "tracksV2" : type === "album" ? "albumsV2" : type === "playlist" ? "playlistsV2" : null;
-  const connection = key ? response?.data?.searchV2?.[key] : null;
-  if (connection?.items) return connection.items.map(entry => normalizeSearchItem(entry?.item || entry, type)).filter(Boolean);
+  const keys = type === "track" ? ["tracksV2", "tracks"] : type === "album" ? ["albumsV2", "albums"] : type === "playlist" ? ["playlistsV2", "playlists", "playlist"] : [];
+  for (const key of keys) {
+    const connection = response?.data?.searchV2?.[key];
+    if (connection?.items) return connection.items.map(entry => normalizeSearchItem(entry?.item || entry, type)).filter(Boolean);
+  }
   const items = response?.data?.searchV2?.topResultsV2?.itemsV2 || [];
   return items.map(entry => normalizeSearchItem(entry?.item || entry, type)).filter(item => {
-    const expected = type === "track" ? "Track" : type === "album" ? "Album" : type === "artist" ? "Artist" : "Playlist";
+    if (type === "playlist") return /playlist/i.test(item?.__typename || "") || /^spotify:playlist:/i.test(item?.uri || "");
+    const expected = type === "track" ? "Track" : type === "album" ? "Album" : "Artist";
     return item?.__typename === expected;
   });
 }
@@ -345,10 +348,11 @@ async function graphqlSearch(query, type) {
       : type === "playlist"
         ? (definitions.searchPlaylists || definitions.searchPlaylistsV2)
         : null;
-  const fallbackDefinition = definitions.searchDesktop || definitions.searchModalResults;
-  const definitionsToTry = categoryDefinition && fallbackDefinition
-    ? [categoryDefinition, fallbackDefinition]
-    : [categoryDefinition || fallbackDefinition].filter(Boolean);
+  const definitionsToTry = [...new Set([
+    categoryDefinition,
+    definitions.searchDesktop,
+    definitions.searchModalResults,
+  ].filter(Boolean))];
   const variables = {
     searchTerm: query,
     limit: 20,
@@ -611,9 +615,7 @@ async function spotifyPlaylistSearch(query) {
   const cleanQuery = String(query || "").trim();
   if (!cleanQuery) return [];
   const items = [...await getSpotifyUserPlaylists()];
-  let publicItems = await graphqlSearch(cleanQuery, "playlist");
-  if (!publicItems.length) publicItems = await cosmosSearch(cleanQuery, "playlist");
-  items.push(...publicItems);
+  items.push(...await spotifySearchMany(cleanQuery, "playlist"));
   const unique = new Map();
   items.forEach(item => {
     const key = item?.uri || item?.id || `${item?.name || ""}|${item?.owner?.id || ""}`;
