@@ -378,7 +378,7 @@ async function cosmosSearch(query, type) {
   ];
   for (const url of urls) {
     try {
-      const response = await CosmosAsync.get(url);
+      const response = await spotifyApiGet(url);
       const body = response?.body || response;
       const items = body?.[plural]?.items || body?.result?.[plural]?.items || [];
       const normalized = items.map(item => normalizeSearchItem(item, type)).filter(Boolean);
@@ -526,6 +526,22 @@ function unwrapCosmosBody(response) {
   return body || {};
 }
 
+async function spotifyApiGet(url) {
+  try {
+    const response = await CosmosAsync.get(url);
+    const body = unwrapCosmosBody(response);
+    if (body && !body.error) return response;
+  } catch {}
+  const token = Spicetify.Platform?.Session?.accessToken;
+  if (!token) return null;
+  try {
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {}
+  return null;
+}
+
 function getPlaylistId(value) {
   const raw = String(value || "");
   const uriMatch = raw.match(/spotify:(?:playlist|playlist-v2):([a-zA-Z0-9]+)/i);
@@ -576,19 +592,17 @@ async function getSpotifyUserPlaylists() {
     }
     if (found.length) break;
   }
-  if (!found.length) {
-    const endpoints = [
-      "https://api.spotify.com/v1/me/playlists?limit=50&offset=0",
-      "https://api.spotify.com/v1/me/playlists?limit=50&offset=50",
-      "https://api.spotify.com/v1/me/playlists?limit=50&offset=100",
-      "sp://core/collection/v1/collection/playlists?limit=100",
-    ];
-    for (const endpoint of endpoints) {
-      try {
-        const response = await CosmosAsync.get(endpoint);
-        found.push(...responsePlaylistItems(response));
-      } catch {}
-    }
+  const endpoints = [
+    "https://api.spotify.com/v1/me/playlists?limit=50&offset=0",
+    "https://api.spotify.com/v1/me/playlists?limit=50&offset=50",
+    "https://api.spotify.com/v1/me/playlists?limit=50&offset=100",
+    "sp://core/collection/v1/collection/playlists?limit=100",
+  ];
+  for (const endpoint of endpoints) {
+    try {
+      const response = await spotifyApiGet(endpoint);
+      found.push(...responsePlaylistItems(response));
+    } catch {}
   }
   return found.map(item => normalizeSearchItem(item, "playlist")).filter(Boolean);
 }
@@ -696,7 +710,7 @@ async function getSpotifyPlaylistTracks(playlist, limit=100) {
     while (offset < maxTracks && collected.length < maxTracks) {
       const url = endpoint.replace(/offset=0/, `offset=${offset}`);
       try {
-        const response = await CosmosAsync.get(url);
+        const response = await spotifyApiGet(url);
         addResponse(response);
         const body = unwrapCosmosBody(response);
         const items = responsePlaylistItems(response);
@@ -873,7 +887,8 @@ async function searchSpotifyArtistDirect(query) {
   ];
   for (const url of urls) {
     try {
-      const body = unwrapCosmosBody(await CosmosAsync.get(url));
+      const response = await spotifyApiGet(url);
+      const body = unwrapCosmosBody(response);
       const items = body?.artists?.items || [];
       if (items.length) return items.map(item => normalizeSearchItem(item, "artist")).filter(Boolean);
     } catch {}
@@ -931,7 +946,7 @@ async function getSpotifyArtistTopTracks(artistQuery, limit) {
   if (!id) return [];
   for (const market of ["US", "GB", "CA", "AU"]) {
     try {
-      const response = await CosmosAsync.get(`https://api.spotify.com/v1/artists/${id}/top-tracks?market=${market}&limit=${Math.min(50, Math.max(10, limit))}`);
+      const response = await spotifyApiGet(`https://api.spotify.com/v1/artists/${id}/top-tracks?market=${market}&limit=${Math.min(50, Math.max(10, limit))}`);
       const body = unwrapCosmosBody(response);
       const tracks = body?.tracks || [];
       if (tracks.length) return tracks.slice(0, limit).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
