@@ -579,13 +579,14 @@ async function getSpotifyUserPlaylists() {
   if (!found.length) {
     const endpoints = [
       "https://api.spotify.com/v1/me/playlists?limit=50&offset=0",
+      "https://api.spotify.com/v1/me/playlists?limit=50&offset=50",
+      "https://api.spotify.com/v1/me/playlists?limit=50&offset=100",
       "sp://core/collection/v1/collection/playlists?limit=100",
     ];
     for (const endpoint of endpoints) {
       try {
         const response = await CosmosAsync.get(endpoint);
         found.push(...responsePlaylistItems(response));
-        if (found.length) break;
       } catch {}
     }
   }
@@ -629,6 +630,46 @@ async function resolveSpotifyPlaylist(query) {
   return null;
 }
 
+function collectPlaylistTrackObjects(value, output, depth=0) {
+  if (!value || depth > 8 || output.length >= 500) return;
+  if (Array.isArray(value)) {
+    value.forEach(item => collectPlaylistTrackObjects(item, output, depth + 1));
+    return;
+  }
+  if (typeof value !== "object") return;
+  const uri = value.uri || value.itemUri || value.item_uri;
+  if (typeof uri === "string" && /^spotify:track:/i.test(uri) && (value.name || value.title)) {
+    output.push({ ...value, uri, name: getTrackName(value), artist: getTrackArtistText(value) });
+  }
+  Object.values(value).forEach(item => collectPlaylistTrackObjects(item, output, depth + 1));
+}
+
+async function getGraphQLSpotifyPlaylistTracks(playlist, limit) {
+  const definitions = {
+    ...(Spicetify.GraphQL?.QueryDefinitions || {}),
+    ...(Spicetify.GraphQL?.Definitions || {}),
+  };
+  const definition = definitions.FetchPlaylistContents || definitions.fetchPlaylistContents;
+  const uri = playlist?.uri || (playlist?.id ? `spotify:playlist:${playlist.id}` : "");
+  if (!definition || !uri) return [];
+  const locale = Platform?.Session?.locale || "en";
+  const variableSets = [
+    { uri, offset: 0, limit, locale },
+    { playlistUri: uri, offset: 0, limit, locale },
+    { uri, limit, offset: 0 },
+  ];
+  for (const variables of variableSets) {
+    try {
+      const response = await Spicetify.GraphQL.Request(definition, variables);
+      if (response?.errors?.length) continue;
+      const output = [];
+      collectPlaylistTrackObjects(response, output);
+      if (output.length) return uniqueTracks(output).slice(0, limit);
+    } catch {}
+  }
+  return [];
+}
+
 async function getSpotifyPlaylistTracks(playlist, limit=100) {
   const playlistUri = playlist?.uri || (playlist?.id ? `spotify:playlist:${playlist.id}` : "");
   const id = getPlaylistId(playlistUri || playlist?.id || "");
@@ -664,20 +705,27 @@ async function getSpotifyPlaylistTracks(playlist, limit=100) {
     }
     if (collected.length) break;
   }
-  if (!collected.length) {
-    const api = Platform?.PlaylistAPI || Spicetify.Platform?.PlaylistAPI;
-    for (const name of ["getTracks", "getPlaylistTracks", "getItems", "getPlaylistItems", "getPlaylist"]) {
-      const method = api?.[name];
-      if (typeof method !== "function") continue;
-      for (const args of [[playlistUri || id], [playlistUri || id, { limit: 100, offset: 0 }], [id, 100, 0]]) {
-        try {
-          const response = await method(...args);
-          addResponse(response);
-          if (collected.length) break;
-        } catch {}
+  if (collected.length < maxTracks) {
+    const apis = [Platform?.PlaylistAPI, Spicetify.Platform?.PlaylistAPI, Platform?.LibraryAPI, Spicetify.Platform?.LibraryAPI].filter(Boolean);
+    for (const api of apis) {
+      for (const name of ["getTracks", "getPlaylistTracks", "getItems", "getPlaylistItems", "getPlaylist"]) {
+        const method = api?.[name];
+        if (typeof method !== "function") continue;
+        for (const args of [[playlistUri || id], [playlistUri || id, { limit: 100, offset: 0 }], [id, 100, 0]]) {
+          try {
+            const response = await method(...args);
+            addResponse(response);
+            if (collected.length >= maxTracks) break;
+          } catch {}
+        }
+        if (collected.length >= maxTracks) break;
       }
-      if (collected.length) break;
+      if (collected.length >= maxTracks) break;
     }
+  }
+  if (collected.length < maxTracks) {
+    const graphTracks = await getGraphQLSpotifyPlaylistTracks(playlist, maxTracks);
+    graphTracks.forEach(track => collected.push(track));
   }
   return uniqueTracks(collected).slice(0, maxTracks);
 }
@@ -766,7 +814,9 @@ async function resolveAiRequestClauses(clauses, currentTrack) {
         batch = await getSpotifyPlaylistTracks(resolvedPlaylist.playlist, clause.count);
         sourceLabel = resolvedPlaylist.playlist.name || resolvedPlaylist.query;
       } else {
-        batch = await getGenericSpotifyTracks(clause.playlistQuery, clause.count);
+        const playlistFallbacks = [];
+        for (const variant of getPlaylistQueryVariants(clause.playlistQuery)) playlistFallbacks.push(await getGenericSpotifyTracks(variant, clause.count));
+        batch = interleaveAiTracks(playlistFallbacks, clause.count);
         sourceLabel = clause.playlistQuery;
       }
     } else {
