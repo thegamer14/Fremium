@@ -348,6 +348,18 @@ async function cosmosSearch(query, type) {
   }
   return [];
 }
+async function clearUpcomingQueue() {
+  if (typeof Platform.PlayerAPI?.clearQueue === "function") {
+    await Platform.PlayerAPI.clearQueue();
+    return true;
+  }
+  if (typeof Spicetify.Platform?.PlayerAPI?.clearQueue === "function") {
+    await Spicetify.Platform.PlayerAPI.clearQueue();
+    return true;
+  }
+  return false;
+}
+
 async function addTracksToQueue(trackUris) {
   const unique = Array.from(new Set((trackUris || []).filter(Boolean)));
   if (!unique.length) return { queued: 0, total: 0, failed: [] };
@@ -1163,6 +1175,7 @@ function TasteTab({ onGoLfm }) {
         if (item?.uri) uris.push(item.uri);
       }
       const first = uris[0];
+      if (first) await clearUpcomingQueue();
       const queueResult = first ? await addTracksToQueue(uris.slice(1)) : { queued: 0, total: 0, failed: [] };
       if (first) await Player.playUri(first);
       showNotification(`Genre Fusion: queued ${queueResult.queued}/${combined.length} tracks (${pick})`, queueResult.queued === 0);
@@ -1239,6 +1252,7 @@ function RouletteTab({ onGoLfm }) {
             if (item?.uri) uris.push(item.uri);
           }
           const firstUri = uris[0];
+          if (firstUri) await clearUpcomingQueue();
           const queueResult = firstUri ? await addTracksToQueue(uris.slice(1)) : { queued: 0, total: 0, failed: [] };
           if (firstUri) { await Player.playUri(firstUri); showNotification(`Roulette: playing first track + queued ${queueResult.queued} more`); try{ addTrainingEvent({ type:"roulette", count: queueResult.queued+1, ts: Date.now() }); }catch{} return; }
         }
@@ -1589,6 +1603,7 @@ function AITab({ onGoLfm }) {
       setResults(out);
       const uris = out.filter(t => t.found).map(t => t.uri);
       const firstUri = uris[0];
+      if (firstUri) await clearUpcomingQueue();
       const queueResult = firstUri ? await addTracksToQueue(uris.slice(1)) : { queued: 0, total: 0, failed: [] };
       if (firstUri) {
         rememberAiTracks(out);
@@ -1656,6 +1671,7 @@ function MoodTab({ onGoLfm }) {
         if (it?.uri) uris.push(it.uri);
       }
       const first = uris[0];
+      if (first) await clearUpcomingQueue();
       const queueResult = first ? await addTracksToQueue(uris.slice(1)) : { queued: 0, total: 0, failed: [] };
       if (first) { await Player.playUri(first); showNotification(`${m.emoji} Mood: ${m.label} — queued ${queueResult.queued} more`); addTrainingEvent({ type:"mood", mood:m.id, queued: queueResult.queued }); }
       else showNotification(`No ${m.label} tracks`, true);
