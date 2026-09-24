@@ -23,6 +23,7 @@ const LS = {
   lfmToken: `${APP_ID}:lfm:token`,
   queueLog: `${APP_ID}:queue:log`,
   trainLog: `${APP_ID}:queue:train`,
+  aiHistory: `${APP_ID}:ai:history`,
 };
 
 function loadJson(key, fallback) {
@@ -202,6 +203,55 @@ function searchName(value) {
     .replace(/["']/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+function getTrackUri(track) {
+  return track?.uri || track?.item?.uri || track?.metadata?.uri || track?.metadata?.item_uri || track?.link || "";
+}
+function getTrackArtistText(track) {
+  const artists = track?.artists || track?.item?.artists || track?.metadata?.artists;
+  if (Array.isArray(artists)) {
+    return artists.map(artist => typeof artist === "string" ? artist : artist?.name || artist?.profile?.name || "").filter(Boolean).join(" ");
+  }
+  return track?.artist?.name || track?.artist?.["#text"] || track?.artist || track?.metadata?.artist_name || "";
+}
+function getTrackKeys(track) {
+  const keys = [];
+  const uri = getTrackUri(track);
+  const name = searchName(track?.name || track?.title || track?.track);
+  const artist = searchName(getTrackArtistText(track));
+  if (uri) keys.push(`uri:${uri}`);
+  if (name) keys.push(`track:${artist}|${name}`);
+  return Array.from(new Set(keys));
+}
+function getActiveTrackKeys() {
+  const queue = Array.isArray(Spicetify.Queue?.nextTracks) ? Spicetify.Queue.nextTracks : [];
+  const active = [Player.data?.item, ...queue];
+  return new Set(active.flatMap(getTrackKeys));
+}
+function uniqueTracks(tracks, excludedKeys = new Set()) {
+  const seen = new Set(excludedKeys);
+  return (tracks || []).filter(track => {
+    const keys = getTrackKeys(track);
+    if (!keys.length || keys.some(key => seen.has(key))) return false;
+    keys.forEach(key => seen.add(key));
+    return true;
+  });
+}
+function getAiHistory() {
+  const value = loadJson(LS.aiHistory, []);
+  return Array.isArray(value) ? value : [];
+}
+function getAiHistoryKeys() {
+  return new Set(getAiHistory().flatMap(item => typeof item === "string" ? [`uri:${item}`] : getTrackKeys(item)));
+}
+function rememberAiTracks(tracks) {
+  const history = uniqueTracks([...(tracks || []), ...getAiHistory()]).slice(0, 100);
+  saveJson(LS.aiHistory, history.map(track => ({
+    uri: getTrackUri(track),
+    name: track?.name || track?.title || "",
+    artist: getTrackArtistText(track),
+    savedAt: Date.now(),
+  })));
 }
 function searchScore(query, item) {
   const q = searchName(query);
@@ -1521,20 +1571,31 @@ function AITab({ onGoLfm }) {
         }
       }
       if (!tracks.length) throw new Error("No AI tracks found — try clearer prompt");
-      // Deduplicate
-      const seen=new Set(); tracks=tracks.filter(t=>{ const k=`${t.artist}|${t.name}`.toLowerCase(); if(seen.has(k))return false; seen.add(k); return true; }).slice(0,15);
-      // Resolve to Spotify and queue
+      const excludedKeys = new Set([...getActiveTrackKeys(), ...getAiHistoryKeys()]);
+      tracks = uniqueTracks(tracks, excludedKeys).slice(0, 15);
+      if (!tracks.length) throw new Error("No new AI tracks found — try a different prompt");
       const out=[];
+      const seenSpotifyUris = new Set();
+      const seenSpotifyKeys = new Set();
       for (const t of tracks) {
         const item = await spotifySearch(`${t.name} ${t.artist}`, "track");
-        out.push({ ...t, uri: item?.uri || "", found: !!item?.uri });
+        if (!item?.uri || seenSpotifyUris.has(item.uri)) continue;
+        const itemKeys = getTrackKeys(item);
+        if (itemKeys.some(key => seenSpotifyKeys.has(key))) continue;
+        seenSpotifyUris.add(item.uri);
+        itemKeys.forEach(key => seenSpotifyKeys.add(key));
+        out.push({ ...t, uri: item.uri, found: true });
       }
       setResults(out);
       const uris = out.filter(t => t.found).map(t => t.uri);
       const firstUri = uris[0];
       const queueResult = firstUri ? await addTracksToQueue(uris.slice(1)) : { queued: 0, total: 0, failed: [] };
-      if (firstUri) { await Player.playUri(firstUri); showNotification(`AI: playing ${out.find(t => t.found).name} + queued ${queueResult.queued} more (${uris.length} total; prompt: "${prompt.slice(0,30)}")`); }
-      else showNotification(`AI found ${out.length} but none on Spotify`, true);
+      if (firstUri) {
+        rememberAiTracks(out);
+        await Player.playUri(firstUri);
+        showNotification(`AI: playing ${out[0].name} + queued ${queueResult.queued} more (${uris.length} total; prompt: "${prompt.slice(0,30)}")`);
+      }
+      else showNotification(`AI found ${out.length} tracks but none were available on Spotify`, true);
       addTrainingEvent({ type: "ai_playlist", prompt, count: out.length, queued: queueResult.queued });
     } catch(e){ showNotification(String(e.message||e), true); }
     finally{ setLoading(false); }
