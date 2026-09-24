@@ -8,7 +8,15 @@
     button.className = "fremium-floating-launcher";
     button.title = "Open full Fremium window";
     button.textContent = "◈";
-    button.onclick = () => window.FremiumOpen?.();
+    button.onclick = () => {
+      if (window.FremiumOpen) return window.FremiumOpen();
+      const path = "/spicify-plugin";
+      try {
+        if (window.Spicetify?.Platform?.History?.location?.pathname !== path) {
+          window.Spicetify.Platform.History.push(path);
+        }
+      } catch {}
+    };
     document.body.appendChild(button);
     return button;
   };

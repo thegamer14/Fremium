@@ -1,6 +1,3 @@
-if (!window.__fremiumRuntimeLoaded) {
-  window.__fremiumRuntimeLoaded = true;
-
 // Fremium — Floating Window CustomApp
 // Pattern: learn from lyrics-plus/new-releases/reddit. Single-file, no build.
 /// <reference types="react" />
@@ -1810,12 +1807,9 @@ function mountPersistentWindow() {
   }
 }
 
-  window.FremiumRuntime = { App };
-  mountPersistentWindow();
-}
+window.FremiumRuntime = { App };
+mountPersistentWindow();
 
 function render() {
-  const runtime = window.FremiumRuntime;
-  if (!runtime) return Spicetify.React.createElement("div", null, "Fremium is loading…");
-  return Spicetify.React.createElement(runtime.App, null);
+  return react.createElement(App, null);
 }
