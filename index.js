@@ -1535,6 +1535,9 @@ function AITab({ onGoLfm }) {
     try {
       const p = prompt.toLowerCase();
       let tracks = [];
+      const durationMatch = p.match(/(\d+)\s*-?\s*(?:hours?|hrs?)/);
+      const requestedHours = durationMatch ? parseInt(durationMatch[1], 10) : null;
+      const targetTrackCount = requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15;
       // "like this but darker" -> similar to current
       if (p.includes("like ") || p.includes("songs like")) {
         const reference = parseReference();
@@ -1553,8 +1556,8 @@ function AITab({ onGoLfm }) {
       }
       // "late-night" / "2-hour"
       else if (p.includes("late") || p.includes("night") || p.includes("hour")) {
-        let hrs = 2; const hm = p.match(/(\d+)\s*hour/); if (hm) hrs=parseInt(hm[1]);
-        const count = Math.max(6, hrs*15); // ~4min per track
+        const hrs = requestedHours || 2;
+        const count = Math.max(6, hrs*20);
         const tag = p.includes("late")||p.includes("night") ? "chill" : "indie";
         const res = await lfmFetch({ method: "tag.getTopTracks", tag, limit: String(count) });
         tracks = (res.tracks?.track||[]).slice(0,count).map(t=>({name:t.name, artist:t.artist.name}));
@@ -1586,7 +1589,7 @@ function AITab({ onGoLfm }) {
       }
       if (!tracks.length) throw new Error("No AI tracks found — try clearer prompt");
       const excludedKeys = new Set([...getActiveTrackKeys(), ...getAiHistoryKeys()]);
-      tracks = uniqueTracks(tracks, excludedKeys).slice(0, 15);
+      tracks = uniqueTracks(tracks, excludedKeys).slice(0, targetTrackCount);
       if (!tracks.length) throw new Error("No new AI tracks found — try a different prompt");
       const out=[];
       const seenSpotifyUris = new Set();
