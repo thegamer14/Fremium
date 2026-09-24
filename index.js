@@ -708,10 +708,54 @@ function parseAiPrompt(text, currentTrack) {
   };
 }
 
+function parseAiRequestClauses(text) {
+  const chunks = String(text || "")
+    .split(/\b(?:then|plus|also|followed by)\b|\band\s+(?=add\b|include\b|use\b|play\b)/i)
+    .map(chunk => chunk.trim())
+    .filter(Boolean);
+  if (chunks.length < 2) return [];
+  return chunks.map((chunk, index) => {
+    const countMatch = chunk.match(/\b(\d+)\s*-?\s*(?:songs?|tracks?)\b/i);
+    const oneMatch = /\b(?:a|one)\s+(?:song|track)\b/i.test(chunk);
+    return {
+      text: chunk,
+      count: countMatch ? parseInt(countMatch[1], 10) : oneMatch ? 1 : index === 0 ? 15 : 1,
+      artistCandidate: extractAiArtistCandidate(chunk),
+    };
+  }).filter(clause => clause.artistCandidate);
+}
+
+async function resolveAiRequestClauses(clauses, currentTrack) {
+  if (!Array.isArray(clauses) || clauses.length < 2) return null;
+  const resolved = [];
+  const sourceNames = [];
+  let totalCount = 0;
+  for (const clause of clauses) {
+    const intent = parseAiPrompt(clause.text, currentTrack);
+    let matches = intent.artistQuery ? await findExactSpotifyArtists(intent.artistQuery) : [];
+    if (!matches.length && clause.artistCandidate) matches = await findExactSpotifyArtists(clause.artistCandidate);
+    if (!matches.length && clause.artistCandidate) matches = [{ name: clause.artistCandidate }];
+    if (!matches.length) continue;
+    const batches = await Promise.all(matches.map(match => getSimilarAiTracks({ track: "", artist: match.name }, currentTrack, clause.count)));
+    const batch = interleaveAiTracks(batches, Math.min(50, Math.max(clause.count * 3, clause.count + 10)));
+    if (!batch.length) continue;
+    const selected = batch.slice(0, Math.max(1, clause.count));
+    resolved.push(...selected);
+    sourceNames.push(matches.map(match => match.name).join(" + "));
+    totalCount += selected.length;
+  }
+  if (!resolved.length) return null;
+  return {
+    tracks: resolved,
+    targetTrackCount: Math.min(50, totalCount),
+    sourceName: sourceNames.join(" + "),
+  };
+}
+
 function extractAiArtistCandidate(text) {
   const value = String(text || "")
     .replace(/\b\d+\s*-?\s*(?:songs?|tracks?|hours?|hrs?)\b/gi, " ")
-    .replace(/\b(?:make|give|create|build|generate|recommend|find|play|put|queue)\b/gi, " ")
+    .replace(/\b(?:make|give|create|build|generate|recommend|find|play|put|queue|add)\b/gi, " ")
     .replace(/\b(?:me|my|a|an|the|mix|playlist|music|songs?|tracks?|from|like|by|for|with|but|that|this|in|on|to|of|what|should|listen)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -1885,17 +1929,19 @@ function AITab({ onGoLfm }) {
     try {
       const p = prompt.toLowerCase();
       const intent = parseAiPrompt(prompt, cur);
-      let tracks = [];
-      let sourceName = "";
+      const requestClauses = parseAiRequestClauses(prompt);
+      const compositeRequest = requestClauses.length > 1 ? await resolveAiRequestClauses(requestClauses, cur) : null;
+      let tracks = compositeRequest?.tracks || [];
+      let sourceName = compositeRequest?.sourceName || "";
       const durationMatch = p.match(/(\d+)\s*-?\s*(?:hours?|hrs?)/);
       const songCountMatch = p.match(/\b(\d+)\s*-?\s*(?:songs?|tracks?)\b/);
       const requestedHours = durationMatch ? parseInt(durationMatch[1], 10) : null;
       const requestedSongCount = songCountMatch ? parseInt(songCountMatch[1], 10) : null;
       const requestedTags = extractAiTags(p);
-      const targetTrackCount = requestedSongCount !== null
+      const targetTrackCount = compositeRequest?.targetTrackCount || (requestedSongCount !== null
         ? Math.min(50, Math.max(1, requestedSongCount))
-        : requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15;
-      const playlistQuery = intent.playlistQuery || (!intent.similar && intent.fromQuery ? intent.fromQuery : "");
+        : requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15);
+      const playlistQuery = compositeRequest ? "" : (intent.playlistQuery || (!intent.similar && intent.fromQuery ? intent.fromQuery : ""));
       if (playlistQuery) {
         const directId = getPlaylistId(playlistQuery);
         let playlist = directId ? { id: directId, uri: `spotify:playlist:${directId}`, name: playlistQuery } : null;
@@ -1919,18 +1965,21 @@ function AITab({ onGoLfm }) {
         }
       }
       let artistCandidate = "";
-      let artistMatches = intent.artistQuery ? await findExactSpotifyArtists(intent.artistQuery) : [];
-      const explicitArtistParts = splitAiArtistCandidates(intent.artistQuery);
-      if (intent.artistQuery && artistMatches.length < explicitArtistParts.length) {
-        explicitArtistParts.forEach(part => {
-          if (!artistMatches.some(match => searchName(match.name) === searchName(part))) artistMatches.push({ name: part });
-        });
+      let artistMatches = [];
+      if (!compositeRequest) {
+        artistMatches = intent.artistQuery ? await findExactSpotifyArtists(intent.artistQuery) : [];
+        const explicitArtistParts = splitAiArtistCandidates(intent.artistQuery);
+        if (intent.artistQuery && artistMatches.length < explicitArtistParts.length) {
+          explicitArtistParts.forEach(part => {
+            if (!artistMatches.some(match => searchName(match.name) === searchName(part))) artistMatches.push({ name: part });
+          });
+        }
+        if (!artistMatches.length && !intent.similar && !intent.playlistQuery) {
+          artistCandidate = extractAiArtistCandidate(prompt);
+          if (artistCandidate) artistMatches = await findExactSpotifyArtists(artistCandidate);
+        }
+        if (!artistMatches.length && !intent.explicitPlaylist && !intent.similar && intent.fromQuery) artistMatches = [{ name: intent.fromQuery }];
       }
-      if (!artistMatches.length && !intent.similar && !intent.playlistQuery) {
-        artistCandidate = extractAiArtistCandidate(prompt);
-        if (artistCandidate) artistMatches = await findExactSpotifyArtists(artistCandidate);
-      }
-      if (!artistMatches.length && !intent.explicitPlaylist && !intent.similar && intent.fromQuery) artistMatches = [{ name: intent.fromQuery }];
       const artistSource = artistMatches.map(match => match.name).filter(Boolean).join(" + ");
       if (artistMatches.length) sourceName = artistSource;
       if (!tracks.length && artistMatches.length) {
