@@ -51,6 +51,8 @@ spicetify apply
 
 4. Fully restart Spotify.
 
+The Windows installer also creates `C:\Free Saves` for Queue Intelligence snapshots.
+
 ## Install on Linux or macOS
 
 ```bash
@@ -80,16 +82,28 @@ Fremium does not include API credentials. Create a Last.fm API account at [Last.
 
 Credentials are stored locally with `Spicetify.LocalStorage` and are not written to this repository.
 
+## Queue Intelligence Saves
+
+The base Fremium page includes a live Queue Intelligence panel. It keeps the current session in memory and does not continuously write QI data to LocalStorage. Use **Choose C:\\Free Saves** once to grant Spotify folder access, then use:
+
+- **Save Snapshot** — writes a timestamped JSON file to `C:\Free Saves`
+- **Download JSON** — downloads a copy through Spotify/browser downloads
+- **Import JSON** — imports one or more saved JSON files; enable replace mode to restore one snapshot instead of merging
+- **Snapshot Queue** — records the current queue as a live event
+
+Live QI resets when Spotify restarts unless you save or import a snapshot.
+
 ## Project Files
 
 - `index.js` — CustomApp, full floating window, tabs, and integrations
 - `fremium-overlay.js` — persistent launcher extension
 - `style.css` — Spotify-compatible window and launcher styling
 - `manifest.json` — Spicetify app metadata
-- `queue-training.js` — local Queue Intelligence data model
-- `queue-training-panel.js` — Queue Intelligence data panel
+- `fremium-qi-extension.js` — live in-memory Queue Intelligence runtime and snapshot file controls
+- `queue-training.js` — legacy local Queue Intelligence data model
+- `queue-training-panel.js` — legacy Queue Intelligence data panel
 
-Queue Intelligence subfiles are currently disabled in `manifest.json` while Spotify stability is evaluated.
+Queue Intelligence is live in memory and is not continuously written to LocalStorage. Use the base-page Queue Intelligence panel to save timestamped JSON snapshots to `C:\Free Saves`, download a copy, or import one or more JSON files. Spotify must grant folder access the first time you choose the folder.
 
 ## Development
 

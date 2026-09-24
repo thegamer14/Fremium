@@ -28,6 +28,7 @@ try {
 
   $targetDir = Join-Path $env:APPDATA "spicetify\CustomApps\$appId"
   New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+  New-Item -ItemType Directory -Path "C:\Free Saves" -Force | Out-Null
   Copy-Item -Path (Join-Path $sourceDir.FullName "*") -Destination $targetDir -Recurse -Force
 
   & $spicetifyPath config custom_apps $appId

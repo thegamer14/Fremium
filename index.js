@@ -454,7 +454,7 @@ async function createSpotifyPlaylist(name, trackUris) {
   return playlist;
 }
 async function balanceLiveQueue() {
-  const qi = window.FremiumQueueIntelligence;
+  const qi = window.FremiumLiveQI;
   const api = Spicetify.Platform.PlayerAPI;
   const current = Spicetify.Queue?.nextTracks || [];
   if (!qi || !api?.reorderQueue || current.length < 2) {
@@ -513,14 +513,14 @@ async function spotifyPlay(query, type="album") {
 
 // ---------- Queue Intelligence data ----------
 function logQueueEvent(evt) {
-  window.FremiumQueueIntelligence?.record?.(evt);
+  window.FremiumLiveQI?.record?.(evt);
 }
-function getQueueLog(){ return window.FremiumQueueIntelligence?.get?.()?.history?.events || []; }
+function getQueueLog(){ return window.FremiumLiveQI?.get?.()?.history?.events || []; }
 function getTrainingFile() {
-  return window.FremiumQueueIntelligence?.get?.() || { profile: {}, tracks: {}, playlists: {}, history: { events: [] } };
+  return window.FremiumLiveQI?.get?.() || { profile: {}, tracks: {}, playlists: {}, history: { events: [] } };
 }
 function addTrainingEvent(event) {
-  window.FremiumQueueIntelligence?.record?.(event);
+  window.FremiumLiveQI?.record?.(event);
 }
 
 
@@ -1479,7 +1479,7 @@ function QueueTab({ onGoLfm }) {
         const item = await spotifySearch(`${t.name} ${t.artist.name}`, "track");
         if (item?.uri && !existing.has(item.uri)) uris.push(item.uri);
       }
-      const rankedUris = (window.FremiumQueueIntelligence?.rank?.(uris.map(uri => ({ uri })), window.FremiumQueueIntelligence?.currentContext?.()) || []).map(item => item.uri);
+      const rankedUris = (window.FremiumLiveQI?.rank?.(uris.map(uri => ({ uri })), window.FremiumLiveQI?.currentContext?.()) || []).map(item => item.uri);
       const result = await addTracksToQueue(rankedUris);
     if (result.queued) {
       addTrainingEvent({ type: "improve", added: uris, queued: result.queued });
@@ -1519,7 +1519,7 @@ function QueueTab({ onGoLfm }) {
         } }, "Queue")
       )))
     ) : null,
-    react.createElement("p", { className:"fremium-hint" }, "QI data is stored separately in the Queue Intelligence data section outside this window. Play, skip, repeat, completion, context, and queue events update the profile continuously.")
+    react.createElement("p", { className:"fremium-hint" }, "QI learns live in memory from play, skip, completion, repeat, context, and queue events. Save timestamped JSON snapshots to C:\\Free Saves or import JSON backups from the base Fremium page.")
   );
 }
 
@@ -1836,6 +1836,106 @@ function DiscoverTab({ onGoLfm }) {
   );
 }
 
+function FremiumQiPanel() {
+  const runtime = window.FremiumLiveQI;
+  const [data, setData] = useState(() => runtime?.get?.() || null);
+  const [status, setStatus] = useState("");
+  const [folderConnected, setFolderConnected] = useState(false);
+  const [replaceOnImport, setReplaceOnImport] = useState(false);
+  const fileInput = useRef(null);
+
+  useEffect(() => {
+    if (!runtime) {
+      setStatus("QI runtime unavailable");
+      return;
+    }
+    const unsubscribe = runtime.subscribe?.(setData);
+    runtime.getDirectoryStatus?.().then(result => setFolderConnected(Boolean(result?.connected))).catch(() => {});
+    return unsubscribe;
+  }, [runtime]);
+
+  const run = async (action, successMessage) => {
+    if (!runtime) return;
+    setStatus("");
+    try {
+      const result = await action();
+      setData(runtime.get?.() || null);
+      setStatus(typeof successMessage === "function" ? successMessage(result) : successMessage || "Done");
+    } catch (error) {
+      setStatus(String(error?.message || error));
+    }
+  };
+
+  const importFiles = async event => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length || !runtime) return;
+    try {
+      for (let index = 0; index < files.length; index++) {
+        const text = await files[index].text();
+        runtime.importJson?.(text, { replace: replaceOnImport && index === 0 && files.length === 1 });
+      }
+      setData(runtime.get?.() || null);
+      setStatus(`Imported ${files.length} JSON file${files.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      setStatus(String(error?.message || error));
+    }
+  };
+
+  const summary = data?.summary || {};
+  const leaders = data?.leaders || [];
+  const events = data?.history?.events || [];
+  return react.createElement("div", { className: "fremium-card fremium-qi-panel" },
+    react.createElement("div", { className: "fremium-qi-header" },
+      react.createElement("div", null,
+        react.createElement("h3", null, "Queue Intelligence"),
+        react.createElement("p", { className: "fremium-hint" }, "Live session data stays in memory. Save snapshots to C:\\Free Saves or import JSON backups.")
+      ),
+      react.createElement("span", { className: "fremium-pill" }, "LIVE")
+    ),
+    !runtime ? react.createElement("div", { className: "fremium-status err" }, "QI runtime unavailable") : react.createElement(react.Fragment, null,
+      react.createElement("div", { className: "fremium-grid2 fremium-qi-stats" },
+        react.createElement(StatCard, { label: "Events", value: String(summary.total || 0), sub: "This session" }),
+        react.createElement(StatCard, { label: "Plays", value: String(summary.plays || 0), sub: `${summary.tracks || 0} tracks` }),
+        react.createElement(StatCard, { label: "Skips", value: String(summary.skips || 0), sub: `${summary.completions || 0} completed` }),
+        react.createElement(StatCard, { label: "Queue actions", value: String(summary.queueActions || 0), sub: "Observed changes" })
+      ),
+      react.createElement("div", { className: "fremium-qi-path" }, folderConnected ? "Connected: C:\\Free Saves" : "Folder not connected: C:\\Free Saves"),
+      react.createElement("div", { className: "fremium-actions" },
+        react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.chooseDirectory?.(), "Free Saves folder connected") }, "Choose C:\\Free Saves"),
+        react.createElement("button", { className: "fremium-btn primary", onClick: () => run(() => runtime.saveSnapshot?.(), fileName => `Saved ${fileName}`), disabled: !folderConnected }, "Save Snapshot"),
+        react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.downloadSnapshot?.(), fileName => `Downloaded ${fileName}`) }, "Download JSON"),
+        react.createElement("button", { className: "fremium-btn", onClick: () => fileInput.current?.click() }, "Import JSON"),
+        react.createElement("input", { ref: fileInput, type: "file", accept: ".json,application/json", multiple: true, onChange: importFiles, style: { display: "none" } }),
+        react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.snapshot?.(), "Queue snapshot recorded") }, "Snapshot Queue"),
+        react.createElement("button", { className: "fremium-btn danger", onClick: () => { if (confirm("Clear the live QI session?")) run(() => runtime.clear?.(), "Live QI session cleared"); } }, "Clear Live QI")
+      ),
+      react.createElement("label", { className: "fremium-qi-import-option" },
+        react.createElement("input", { type: "checkbox", checked: replaceOnImport, onChange: event => setReplaceOnImport(event.target.checked) }),
+        react.createElement("span", null, "Replace live data when importing one file")
+      ),
+      status ? react.createElement("div", { className: `fremium-status ${status.toLowerCase().includes("unavailable") || status.toLowerCase().includes("error") ? "err" : "ok"}` }, status) : null,
+      leaders.length ? react.createElement("div", { className: "fremium-qi-leaders" },
+        react.createElement("h4", null, "Most played this session"),
+        leaders.map(track => react.createElement("div", { className: "fremium-row", key: track.uri || `${track.name}-${track.artist}` },
+          react.createElement("div", { className: "fremium-row-main" },
+            react.createElement("div", { className: "fremium-row-title small" }, track.name || "Unknown track"),
+            react.createElement("div", { className: "fremium-row-sub" }, track.artist || "Unknown artist")
+          ),
+          react.createElement("span", { className: "fremium-pill" }, `${track.plays || 0} plays`)
+        ))
+      ) : null,
+      events.length ? react.createElement("div", { className: "fremium-qi-events" },
+        react.createElement("h4", null, "Recent activity"),
+        events.slice(0, 5).map((event, index) => react.createElement("div", { className: "fremium-qi-event", key: `${event.timestamp || index}-${index}` },
+          react.createElement("strong", null, event.type || "event"),
+          react.createElement("span", null, event.name || event.uri || "Queue activity")
+        ))
+      ) : null
+    )
+  );
+}
+
 function App() {
   useEffect(() => {
     let menuItem = null;
@@ -1876,7 +1976,8 @@ function App() {
           react.createElement("p", { className: "fremium-hint" }, "Drag the header to move it anywhere. Drag the lower-right corner to resize it. Position and size are remembered.")
         )
       )
-    )
+    ),
+    react.createElement(FremiumQiPanel, null)
   );
 }
 
