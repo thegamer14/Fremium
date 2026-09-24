@@ -17,6 +17,16 @@ Fremium is a Spicetify CustomApp for music discovery, listening insights, and pl
 
 ## Install on Windows
 
+### Quick Install
+
+Open PowerShell and run:
+
+```powershell
+irm https://raw.githubusercontent.com/thegamer14/Fremium/main/install.ps1 | iex
+```
+
+### Manual Install
+
 1. Clone the repository:
 
 ```powershell
@@ -40,6 +50,14 @@ spicetify apply
 ```
 
 4. Fully restart Spotify.
+
+## Install on Linux or macOS
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/thegamer14/Fremium/main/install.sh)
+```
+
+The installer requires `spicetify`, `curl`, and `tar` to be available.
 
 ## Using the Full Window
 
