@@ -611,12 +611,15 @@ async function spotifyPlaylistSearch(query) {
 function getPlaylistQueryVariants(query) {
   const raw = String(query || "").trim();
   const cleaned = raw
-    .replace(/\bmy\b/gi, " ")
+    .replace(/\b(?:my|your|the)\b/gi, " ")
     .replace(/\bplaylist\b/gi, " ")
     .replace(/\bfolx\b/gi, "folk")
     .replace(/\s+/g, " ")
     .trim();
-  return [...new Set([raw, cleaned, cleaned.replace(/\bfolk\b/gi, "folx")].filter(Boolean))];
+  const parts = cleaned.split(/\s*\/\s*|\s*&\s*|\s*\+\s*/).map(part => part.trim()).filter(Boolean);
+  const variants = [raw, cleaned, ...parts, ...parts.map(part => part.replace(/\bfolk\b/gi, "folx"))];
+  if (parts.length > 1) variants.push(parts.join(" "));
+  return [...new Set(variants.filter(Boolean))];
 }
 
 async function resolveSpotifyPlaylist(query) {
@@ -860,10 +863,29 @@ function splitAiArtistCandidates(value) {
     .filter(Boolean);
 }
 
+async function searchSpotifyArtistDirect(query) {
+  const cleanQuery = String(query || "").trim();
+  if (!cleanQuery) return [];
+  const fieldQuery = `artist:"${cleanQuery}"`;
+  const urls = [
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(fieldQuery)}&type=artist&limit=20&market=US`,
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(cleanQuery)}&type=artist&limit=20`,
+  ];
+  for (const url of urls) {
+    try {
+      const body = unwrapCosmosBody(await CosmosAsync.get(url));
+      const items = body?.artists?.items || [];
+      if (items.length) return items.map(item => normalizeSearchItem(item, "artist")).filter(Boolean);
+    } catch {}
+  }
+  return [];
+}
+
 async function findExactSpotifyArtist(query) {
   const cleanQuery = String(query || "").trim();
   if (!cleanQuery) return null;
-  const items = await spotifySearchMany(cleanQuery, "artist");
+  let items = await spotifySearchMany(cleanQuery, "artist");
+  if (!items.length) items = await searchSpotifyArtistDirect(cleanQuery);
   const sorted = [...items].sort((a, b) => searchScore(cleanQuery, b) - searchScore(cleanQuery, a));
   const best = sorted[0];
   if (best && searchScore(cleanQuery, best) >= 100) return best;
@@ -900,7 +922,11 @@ async function spotifySearchMany(query, type) {
 }
 
 async function getSpotifyArtistTopTracks(artistQuery, limit) {
-  const artist = await spotifySearch(artistQuery, "artist").catch(() => null);
+  let artist = await spotifySearch(artistQuery, "artist").catch(() => null);
+  if (!artist) {
+    const direct = await searchSpotifyArtistDirect(artistQuery);
+    artist = direct.sort((a, b) => searchScore(artistQuery, b) - searchScore(artistQuery, a))[0] || null;
+  }
   const id = String(artist?.uri || "").match(/spotify:artist:([a-zA-Z0-9]+)/i)?.[1] || artist?.id;
   if (!id) return [];
   for (const market of ["US", "GB", "CA", "AU"]) {
@@ -940,6 +966,12 @@ async function getSimilarAiTracks(reference, currentTrack, targetCount) {
   if (artist) {
     const top = await getSpotifyArtistTopTracks(artist, candidateLimit);
     if (top.length) return top;
+    const artistTracks = await spotifySearchMany(artist, "track");
+    if (artistTracks.length) {
+      const artistToken = searchName(artist);
+      const matching = artistTracks.filter(track => searchName(getTrackArtistText(track)).includes(artistToken));
+      return (matching.length ? matching : artistTracks).slice(0, candidateLimit).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
+    }
   }
   if (spotifyTrack) return [{ ...spotifyTrack, name: getTrackName(spotifyTrack), artist: getTrackArtistText(spotifyTrack) }];
   if (!trackName && !artist && currentTrack) {
