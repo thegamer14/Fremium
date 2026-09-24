@@ -253,6 +253,38 @@ function rememberAiTracks(tracks) {
     savedAt: Date.now(),
   })));
 }
+function extractAiTags(text) {
+  const normalized = String(text || "")
+    .toLowerCase()
+    .replace(/\bfolx\b/g, "folk")
+    .replace(/[-_]+/g, " ");
+  const phrases = [
+    "indie folk", "indie rock", "indie pop", "dream pop", "shoegaze", "post punk",
+    "alternative rock", "folk rock", "folk", "indie", "rock", "pop", "jazz", "blues",
+    "classical", "electronic", "ambient", "chill", "hip hop", "rap", "metal", "punk",
+  ];
+  const stopWords = new Set([
+    "make", "me", "a", "an", "the", "playlist", "mix", "music", "song", "songs", "track", "tracks",
+    "for", "of", "with", "and", "but", "like", "this", "that", "listening", "listen", "to", "in", "on",
+    "hour", "hours", "hr", "hrs", "duration", "mixes", "mixed", "vibe", "vibes", "sounds", "sound",
+    "late", "night", "what", "should", "give", "something",
+  ]);
+  const tags = [];
+  for (const phrase of phrases) {
+    if (normalized.includes(phrase)) {
+      tags.push(phrase);
+      phrase.split(" ").forEach(part => tags.push(part));
+    }
+  }
+  normalized
+    .replace(/\b\d+\s*(?:hours?|hrs?)\b/g, " ")
+    .split(/[^a-z0-9]+/)
+    .filter(word => word.length > 2 && !stopWords.has(word))
+    .forEach(word => tags.push(word));
+  if (/\b(?:late|night)\b/.test(normalized) && !tags.length) tags.push("chill");
+  return Array.from(new Set(tags)).slice(0, 6);
+}
+
 function searchScore(query, item) {
   const q = searchName(query);
   const name = searchName(item?.name || item?.title);
@@ -1537,6 +1569,7 @@ function AITab({ onGoLfm }) {
       let tracks = [];
       const durationMatch = p.match(/(\d+)\s*-?\s*(?:hours?|hrs?)/);
       const requestedHours = durationMatch ? parseInt(durationMatch[1], 10) : null;
+      const requestedTags = extractAiTags(p);
       const targetTrackCount = requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15;
       // "like this but darker" -> similar to current
       if (p.includes("like ") || p.includes("songs like")) {
@@ -1554,13 +1587,16 @@ function AITab({ onGoLfm }) {
           }
         }
       }
-      // "late-night" / "2-hour"
-      else if (p.includes("late") || p.includes("night") || p.includes("hour")) {
-        const hrs = requestedHours || 2;
-        const count = Math.max(6, hrs*20);
-        const tag = p.includes("late")||p.includes("night") ? "chill" : "indie";
-        const res = await lfmFetch({ method: "tag.getTopTracks", tag, limit: String(count) });
-        tracks = (res.tracks?.track||[]).slice(0,count).map(t=>({name:t.name, artist:t.artist.name}));
+      else if (requestedTags.length || p.includes("late") || p.includes("night") || p.includes("hour")) {
+        const tags = requestedTags.length ? requestedTags : [p.includes("late") || p.includes("night") ? "chill" : "indie"];
+        const perTagLimit = Math.min(50, Math.max(10, Math.ceil(targetTrackCount / tags.length) + 8));
+        for (const tag of tags) {
+          try {
+            const res = await lfmFetch({ method: "tag.getTopTracks", tag, limit: String(perTagLimit) });
+            (res.tracks?.track || []).slice(0, perTagLimit).forEach(track => tracks.push({ name: track.name, artist: track.artist.name }));
+          } catch {}
+          if (tracks.length >= targetTrackCount) break;
+        }
       }
       // "what should i listen" -> random from top + loved
       else if (p.includes("what should") || p.includes("listen to")) {
@@ -1570,11 +1606,11 @@ function AITab({ onGoLfm }) {
       }
       // Default: treat prompt as tag + search
       else {
-        const words = prompt.split(/[,+]/).map(s=>s.trim()).filter(Boolean).slice(0,3);
+        const words = requestedTags.length ? requestedTags : prompt.split(/[,+]/).map(s=>s.trim()).filter(Boolean).slice(0,3);
         for (const w of words) {
           try {
-            const r = await lfmFetch({ method: "tag.getTopTracks", tag: w, limit: "5" });
-            (r.tracks?.track||[]).slice(0,3).forEach(t=> tracks.push({name:t.name, artist:t.artist.name}));
+            const r = await lfmFetch({ method: "tag.getTopTracks", tag: w, limit: String(Math.min(20, Math.max(5, targetTrackCount))) });
+            (r.tracks?.track||[]).slice(0, Math.min(20, Math.max(5, targetTrackCount))).forEach(t=> tracks.push({name:t.name, artist:t.artist.name}));
           } catch {}
         }
         if (!tracks.length) {
