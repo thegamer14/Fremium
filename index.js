@@ -847,6 +847,10 @@ async function resolveAiRequestClauses(clauses, currentTrack) {
         sourceLabel = matches.map(match => match.name).join(" + ");
       }
     }
+    if (batch.length < clause.count) {
+      const supplement = await getGenericSpotifyTracks(sourceLabel || clause.playlistQuery || clause.artistCandidate, clause.count * 3);
+      batch = interleaveAiTracks([batch, supplement], Math.max(clause.count, batch.length + supplement.length));
+    }
     if (!batch.length) continue;
     const selected = batch.slice(0, Math.max(1, clause.count));
     resolved.push(...selected);
@@ -932,13 +936,21 @@ async function findExactSpotifyArtists(query) {
 async function spotifySearchMany(query, type) {
   const cleanQuery = String(query || "").trim();
   if (!cleanQuery) return [];
-  let items = await graphqlSearch(cleanQuery, type);
-  if (!items.length) items = await cosmosSearch(cleanQuery, type);
-  return items;
+  const [graphqlItems, cosmosItems] = await Promise.all([
+    graphqlSearch(cleanQuery, type).catch(() => []),
+    cosmosSearch(cleanQuery, type).catch(() => []),
+  ]);
+  const unique = new Map();
+  [...graphqlItems, ...cosmosItems].forEach(item => {
+    const key = item?.uri || item?.id || `${item?.name || ""}|${getTrackArtistText(item)}`;
+    if (key && !unique.has(key)) unique.set(key, item);
+  });
+  return [...unique.values()];
 }
 
 async function getSpotifyArtistTopTracks(artistQuery, limit) {
-  let artist = await spotifySearch(artistQuery, "artist").catch(() => null);
+  const searched = await spotifySearchMany(artistQuery, "artist").catch(() => []);
+  let artist = searched.sort((a, b) => searchScore(artistQuery, b) - searchScore(artistQuery, a))[0] || null;
   if (!artist) {
     const direct = await searchSpotifyArtistDirect(artistQuery);
     artist = direct.sort((a, b) => searchScore(artistQuery, b) - searchScore(artistQuery, a))[0] || null;
