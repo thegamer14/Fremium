@@ -90,6 +90,7 @@ The AI tab understands natural-language references such as:
 - `Give me songs like I'm butterbean`
 - `Make a 10 song Novo Amor mix`
 - `Make a 10 song Novo Amor and Josh Pyke mix`
+- `Make me an NF mix with some songs from my folk mix playlist`
 - `Play songs by The B-52's`
 - `Play the Roadtrip playlist`
 - A pasted Spotify playlist link

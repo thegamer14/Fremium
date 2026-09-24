@@ -607,6 +607,28 @@ async function spotifyPlaylistSearch(query) {
   return [...unique.values()].sort((a, b) => playlistSearchScore(cleanQuery, b) - playlistSearchScore(cleanQuery, a));
 }
 
+function getPlaylistQueryVariants(query) {
+  const raw = String(query || "").trim();
+  const cleaned = raw
+    .replace(/\bmy\b/gi, " ")
+    .replace(/\bplaylist\b/gi, " ")
+    .replace(/\bfolx\b/gi, "folk")
+    .replace(/\s+/g, " ")
+    .trim();
+  return [...new Set([raw, cleaned, cleaned.replace(/\bfolk\b/gi, "folx")].filter(Boolean))];
+}
+
+async function resolveSpotifyPlaylist(query) {
+  for (const variant of getPlaylistQueryVariants(query)) {
+    const directId = getPlaylistId(variant);
+    if (directId) return { query: variant, playlist: { id: directId, uri: `spotify:playlist:${directId}`, name: variant } };
+    const candidates = await spotifyPlaylistSearch(variant);
+    const best = candidates[0];
+    if (best && playlistSearchScore(variant, best) >= 40) return { query: variant, playlist: best };
+  }
+  return null;
+}
+
 async function getSpotifyPlaylistTracks(playlist, limit=100) {
   const playlistUri = playlist?.uri || (playlist?.id ? `spotify:playlist:${playlist.id}` : "");
   const id = getPlaylistId(playlistUri || playlist?.id || "");
@@ -710,19 +732,23 @@ function parseAiPrompt(text, currentTrack) {
 
 function parseAiRequestClauses(text) {
   const chunks = String(text || "")
-    .split(/\b(?:then|plus|also|followed by)\b|\band\s+(?=add\b|include\b|use\b|play\b)/i)
+    .split(/\b(?:then|plus|also|followed by)\b|,|\bwith\s+(?=(?:some|several|few|a|one|\d+)?\s*(?:songs?|tracks?)\b)|\band\s+(?=add\b|include\b|use\b|play\b)/i)
     .map(chunk => chunk.trim())
     .filter(Boolean);
   if (chunks.length < 2) return [];
   return chunks.map((chunk, index) => {
+    const intent = parseAiPrompt(chunk);
+    const playlistQuery = intent.explicitPlaylist ? intent.playlistQuery : "";
     const countMatch = chunk.match(/\b(\d+)\s*-?\s*(?:songs?|tracks?)\b/i);
     const oneMatch = /\b(?:a|one)\s+(?:song|track)\b/i.test(chunk);
+    const someMatch = /\b(?:some|several|few)\s+(?:songs?|tracks?)\b/i.test(chunk);
     return {
       text: chunk,
-      count: countMatch ? parseInt(countMatch[1], 10) : oneMatch ? 1 : index === 0 ? 15 : 1,
-      artistCandidate: extractAiArtistCandidate(chunk),
+      count: countMatch ? parseInt(countMatch[1], 10) : playlistQuery ? 5 : oneMatch ? 1 : index === 0 ? 15 : 1,
+      artistCandidate: playlistQuery ? "" : extractAiArtistCandidate(chunk),
+      playlistQuery,
     };
-  }).filter(clause => clause.artistCandidate);
+  }).filter(clause => clause.artistCandidate || clause.playlistQuery);
 }
 
 async function resolveAiRequestClauses(clauses, currentTrack) {
@@ -732,16 +758,31 @@ async function resolveAiRequestClauses(clauses, currentTrack) {
   let totalCount = 0;
   for (const clause of clauses) {
     const intent = parseAiPrompt(clause.text, currentTrack);
-    let matches = intent.artistQuery ? await findExactSpotifyArtists(intent.artistQuery) : [];
-    if (!matches.length && clause.artistCandidate) matches = await findExactSpotifyArtists(clause.artistCandidate);
-    if (!matches.length && clause.artistCandidate) matches = [{ name: clause.artistCandidate }];
-    if (!matches.length) continue;
-    const batches = await Promise.all(matches.map(match => getSimilarAiTracks({ track: "", artist: match.name }, currentTrack, clause.count)));
-    const batch = interleaveAiTracks(batches, Math.min(50, Math.max(clause.count * 3, clause.count + 10)));
+    let batch = [];
+    let sourceLabel = "";
+    if (clause.playlistQuery) {
+      const resolvedPlaylist = await resolveSpotifyPlaylist(clause.playlistQuery);
+      if (resolvedPlaylist) {
+        batch = await getSpotifyPlaylistTracks(resolvedPlaylist.playlist, clause.count);
+        sourceLabel = resolvedPlaylist.playlist.name || resolvedPlaylist.query;
+      } else {
+        batch = await getGenericSpotifyTracks(clause.playlistQuery, clause.count);
+        sourceLabel = clause.playlistQuery;
+      }
+    } else {
+      let matches = intent.artistQuery ? await findExactSpotifyArtists(intent.artistQuery) : [];
+      if (!matches.length && clause.artistCandidate) matches = await findExactSpotifyArtists(clause.artistCandidate);
+      if (!matches.length && clause.artistCandidate) matches = [{ name: clause.artistCandidate }];
+      if (matches.length) {
+        const batches = await Promise.all(matches.map(match => getSimilarAiTracks({ track: "", artist: match.name }, currentTrack, clause.count)));
+        batch = interleaveAiTracks(batches, Math.min(50, Math.max(clause.count * 3, clause.count + 10)));
+        sourceLabel = matches.map(match => match.name).join(" + ");
+      }
+    }
     if (!batch.length) continue;
     const selected = batch.slice(0, Math.max(1, clause.count));
     resolved.push(...selected);
-    sourceNames.push(matches.map(match => match.name).join(" + "));
+    sourceNames.push(sourceLabel);
     totalCount += selected.length;
   }
   if (!resolved.length) return null;
@@ -1943,15 +1984,10 @@ function AITab({ onGoLfm }) {
         : requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15);
       const playlistQuery = compositeRequest ? "" : (intent.playlistQuery || (!intent.similar && intent.fromQuery ? intent.fromQuery : ""));
       if (playlistQuery) {
-        const directId = getPlaylistId(playlistQuery);
-        let playlist = directId ? { id: directId, uri: `spotify:playlist:${directId}`, name: playlistQuery } : null;
-        if (!playlist) {
-          const candidates = await spotifyPlaylistSearch(playlistQuery);
-          if (candidates[0] && playlistSearchScore(playlistQuery, candidates[0]) >= 40) playlist = candidates[0];
-        }
-        if (playlist) {
-          sourceName = playlist.name || playlistQuery;
-          tracks = await getSpotifyPlaylistTracks(playlist, targetTrackCount);
+        const resolvedPlaylist = await resolveSpotifyPlaylist(playlistQuery);
+        if (resolvedPlaylist) {
+          sourceName = resolvedPlaylist.playlist.name || resolvedPlaylist.query;
+          tracks = await getSpotifyPlaylistTracks(resolvedPlaylist.playlist, targetTrackCount);
         }
       }
       if (!tracks.length && intent.similar) {
