@@ -725,7 +725,12 @@ async function findExactSpotifyArtist(query) {
   const items = await spotifySearchMany(cleanQuery, "artist");
   const sorted = [...items].sort((a, b) => searchScore(cleanQuery, b) - searchScore(cleanQuery, a));
   const best = sorted[0];
-  return best && searchScore(cleanQuery, best) >= 100 ? best : null;
+  if (best && searchScore(cleanQuery, best) >= 100) return best;
+  if (best && searchScore(cleanQuery, best) >= 45) return best;
+  const lfmResult = await lfmFetch({ method: "artist.search", artist: cleanQuery, limit: "5" }).catch(() => null);
+  const lfmArtists = lfmResult?.results?.artistmatches?.artist || [];
+  const lfmExact = lfmArtists.find(artist => searchName(artist.name) === searchName(cleanQuery));
+  return lfmExact?.name ? { name: lfmExact.name } : null;
 }
 
 async function spotifySearchMany(query, type) {
@@ -753,7 +758,7 @@ async function getSpotifyArtistTopTracks(artistQuery, limit) {
 
 async function getSimilarAiTracks(reference, currentTrack, targetCount) {
   if (!reference) return [];
-  const candidateLimit = Math.min(50, Math.max(targetCount * 2, targetCount + 10));
+  const candidateLimit = Math.min(50, Math.max(targetCount * 3, targetCount + 20));
   const trackName = reference.track || "";
   let artist = reference.artist || "";
   const spotifyTrack = trackName ? await spotifySearch(`${trackName}${artist ? ` ${artist}` : ""}`, "track").catch(() => null) : null;
@@ -1914,8 +1919,11 @@ function AITab({ onGoLfm }) {
       }
       tracks = tracks.map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) })).filter(track => track.name && track.artist);
       if (!tracks.length) throw new Error(playlistQuery ? `Could not find or load playlist "${playlistQuery}"` : "No AI tracks found — try clearer prompt");
-      const excludedKeys = new Set([...getActiveTrackKeys(), ...getAiHistoryKeys()]);
-      tracks = uniqueTracks(tracks, excludedKeys).slice(0, targetTrackCount);
+      const candidateTracks = tracks;
+      const activeKeys = getActiveTrackKeys();
+      const excludedKeys = new Set([...activeKeys, ...getAiHistoryKeys()]);
+      tracks = uniqueTracks(candidateTracks, excludedKeys).slice(0, targetTrackCount);
+      if (!tracks.length && (artistSource || playlistQuery)) tracks = uniqueTracks(candidateTracks, activeKeys).slice(0, targetTrackCount);
       if (!tracks.length) throw new Error("No new AI tracks found — try a different prompt");
       const out = [];
       const seenSpotifyUris = new Set();
