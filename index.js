@@ -708,6 +708,26 @@ function parseAiPrompt(text, currentTrack) {
   };
 }
 
+function extractAiArtistCandidate(text) {
+  const value = String(text || "")
+    .replace(/\b\d+\s*-?\s*(?:songs?|tracks?|hours?|hrs?)\b/gi, " ")
+    .replace(/\b(?:make|give|create|build|generate|recommend|find|play|put|queue)\b/gi, " ")
+    .replace(/\b(?:me|my|a|an|the|mix|playlist|music|songs?|tracks?|from|like|by|for|with|but|that|this|in|on|to|of|what|should|listen)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!value || value.length < 2 || value.includes("+") || value.includes(",")) return "";
+  return value;
+}
+
+async function findExactSpotifyArtist(query) {
+  const cleanQuery = String(query || "").trim();
+  if (!cleanQuery) return null;
+  const items = await spotifySearchMany(cleanQuery, "artist");
+  const sorted = [...items].sort((a, b) => searchScore(cleanQuery, b) - searchScore(cleanQuery, a));
+  const best = sorted[0];
+  return best && searchScore(cleanQuery, best) >= 100 ? best : null;
+}
+
 async function spotifySearchMany(query, type) {
   const cleanQuery = String(query || "").trim();
   if (!cleanQuery) return [];
@@ -733,35 +753,38 @@ async function getSpotifyArtistTopTracks(artistQuery, limit) {
 
 async function getSimilarAiTracks(reference, currentTrack, targetCount) {
   if (!reference) return [];
+  const candidateLimit = Math.min(50, Math.max(targetCount * 2, targetCount + 10));
   const trackName = reference.track || "";
   let artist = reference.artist || "";
   const spotifyTrack = trackName ? await spotifySearch(`${trackName}${artist ? ` ${artist}` : ""}`, "track").catch(() => null) : null;
   artist = artist || getTrackArtistText(spotifyTrack) || "";
-  if (trackName && artist) {
-    const similar = await lfmFetch({ method: "track.getSimilar", artist, track: trackName, limit: String(Math.min(50, Math.max(10, targetCount))) }).catch(() => null);
-    const list = similar?.similartracks?.track || [];
-    if (list.length) return list.slice(0, targetCount).map(track => ({ name: track.name, artist: track.artist?.name || artist }));
+  if (!trackName && artist) {
+    const spotifyTop = await getSpotifyArtistTopTracks(artist, candidateLimit);
+    const top = await lfmFetch({ method: "artist.getTopTracks", artist, limit: String(candidateLimit) }).catch(() => null);
+    const lfmTracks = (top?.toptracks?.track || []).map(track => ({ name: track.name, artist: track.artist?.name || artist }));
+    const combined = uniqueTracks([...spotifyTop, ...lfmTracks]).slice(0, candidateLimit);
+    if (combined.length) return combined;
   }
-  if (artist) {
-    const top = await lfmFetch({ method: "artist.getTopTracks", artist, limit: String(Math.min(50, Math.max(10, targetCount))) }).catch(() => null);
-    const list = top?.toptracks?.track || [];
-    if (list.length) return list.slice(0, targetCount).map(track => ({ name: track.name, artist: track.artist?.name || artist }));
+  if (trackName && artist) {
+    const similar = await lfmFetch({ method: "track.getSimilar", artist, track: trackName, limit: String(candidateLimit) }).catch(() => null);
+    const list = similar?.similartracks?.track || [];
+    if (list.length) return list.slice(0, candidateLimit).map(track => ({ name: track.name, artist: track.artist?.name || artist }));
   }
   if (trackName) {
     const related = await spotifySearchMany(`${trackName}${artist ? ` ${artist}` : ""}`, "track");
-    if (related.length) return related.slice(0, targetCount).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
+    if (related.length) return related.slice(0, candidateLimit).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
   }
   if (artist) {
-    const top = await getSpotifyArtistTopTracks(artist, targetCount);
+    const top = await getSpotifyArtistTopTracks(artist, candidateLimit);
     if (top.length) return top;
   }
   if (spotifyTrack) return [{ ...spotifyTrack, name: getTrackName(spotifyTrack), artist: getTrackArtistText(spotifyTrack) }];
   if (!trackName && !artist && currentTrack) {
-    const similar = await lfmFetch({ method: "track.getSimilar", artist: getTrackArtistText(currentTrack), track: getTrackName(currentTrack), limit: String(Math.min(50, Math.max(10, targetCount))) }).catch(() => null);
+    const similar = await lfmFetch({ method: "track.getSimilar", artist: getTrackArtistText(currentTrack), track: getTrackName(currentTrack), limit: String(candidateLimit) }).catch(() => null);
     const list = similar?.similartracks?.track || [];
-    if (list.length) return list.slice(0, targetCount).map(track => ({ name: track.name, artist: track.artist?.name || getTrackArtistText(currentTrack) }));
+    if (list.length) return list.slice(0, candidateLimit).map(track => ({ name: track.name, artist: track.artist?.name || getTrackArtistText(currentTrack) }));
     const related = await spotifySearchMany(`${getTrackName(currentTrack)} ${getTrackArtistText(currentTrack)}`, "track");
-    if (related.length) return related.slice(0, targetCount).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
+    if (related.length) return related.slice(0, candidateLimit).map(track => ({ ...track, name: getTrackName(track), artist: getTrackArtistText(track), uri: getTrackUri(track) }));
   }
   return [];
 }
@@ -1803,7 +1826,8 @@ function AITab({ onGoLfm }) {
     if (!prompt.trim()) { showNotification("Enter a prompt first", true); return; }
     const initialIntent = parseAiPrompt(prompt, cur);
     const hasPlaylistSource = Boolean(initialIntent.playlistQuery || (!initialIntent.similar && initialIntent.fromQuery));
-    if (!lfmOk && !hasPlaylistSource && !initialIntent.similar && !initialIntent.artistQuery) { showNotification("Connect Last.fm for tag-based recommendations", true); return; }
+    const hasArtistCandidate = !initialIntent.similar && !initialIntent.playlistQuery && Boolean(extractAiArtistCandidate(prompt));
+    if (!lfmOk && !hasPlaylistSource && !initialIntent.similar && !initialIntent.artistQuery && !hasArtistCandidate) { showNotification("Connect Last.fm for tag-based recommendations", true); return; }
     setLoading(true); setResults(null);
     try {
       const p = prompt.toLowerCase();
@@ -1811,9 +1835,13 @@ function AITab({ onGoLfm }) {
       let tracks = [];
       let sourceName = "";
       const durationMatch = p.match(/(\d+)\s*-?\s*(?:hours?|hrs?)/);
+      const songCountMatch = p.match(/\b(\d+)\s*-?\s*(?:songs?|tracks?)\b/);
       const requestedHours = durationMatch ? parseInt(durationMatch[1], 10) : null;
+      const requestedSongCount = songCountMatch ? parseInt(songCountMatch[1], 10) : null;
       const requestedTags = extractAiTags(p);
-      const targetTrackCount = requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15;
+      const targetTrackCount = requestedSongCount !== null
+        ? Math.min(50, Math.max(1, requestedSongCount))
+        : requestedHours ? Math.min(50, Math.max(8, Math.ceil(requestedHours * 20))) : 15;
       const playlistQuery = intent.playlistQuery || (!intent.similar && intent.fromQuery ? intent.fromQuery : "");
       if (playlistQuery) {
         const directId = getPlaylistId(playlistQuery);
@@ -1837,8 +1865,20 @@ function AITab({ onGoLfm }) {
           else if (!tracks.length) tracks = (dark?.tracks?.track || []).slice(0, 8).map(track => ({ name: track.name, artist: track.artist.name }));
         }
       }
-      const artistSource = intent.artistQuery || (!intent.explicitPlaylist && !intent.similar && intent.fromQuery ? intent.fromQuery : "");
-      if (!tracks.length && artistSource) tracks = await getSimilarAiTracks({ track: "", artist: artistSource }, cur, targetTrackCount);
+      let artistSource = intent.artistQuery;
+      if (!artistSource && !intent.similar && !intent.playlistQuery) {
+        const candidate = extractAiArtistCandidate(prompt);
+        const exactArtist = candidate ? await findExactSpotifyArtist(candidate) : null;
+        if (exactArtist) {
+          artistSource = exactArtist.name;
+          sourceName = exactArtist.name;
+        }
+      }
+      if (!artistSource && !intent.explicitPlaylist && !intent.similar && intent.fromQuery) artistSource = intent.fromQuery;
+      if (!tracks.length && artistSource) {
+        if (!sourceName) sourceName = artistSource;
+        tracks = await getSimilarAiTracks({ track: "", artist: artistSource }, cur, targetTrackCount);
+      }
       if (!tracks.length && (p.includes("what should") || p.includes("listen to"))) {
         if (!lfmOk) throw new Error("Connect Last.fm for personalized listening suggestions");
         const top = await lfmFetch({ method: "user.getTopTracks", user: getLfmConfig().user, period: "7day", limit: "40" }).catch(() => null);
