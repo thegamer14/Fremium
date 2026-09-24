@@ -780,8 +780,9 @@ function parseAiPrompt(text, currentTrack) {
   const linkMatch = raw.match(/(?:https?:\/\/open\.spotify\.com\/(?:playlist|user\/[^/]+\/playlist)|spotify:(?:playlist|playlist-v2):)([a-zA-Z0-9]+)/i);
   const explicitPlaylistMatch = raw.match(/\bplaylist\s+(?:(?:called|named|titled)\s+)?(.+?)(?=\s+playlist\b|[,.!?]|$)/i);
   const beforePlaylistMatch = raw.match(/\b(?:from|use|using|play|queue|load|based on|inspired by)\s+(.+?)\s+playlist\b/i);
+  const possessivePlaylistMatch = raw.match(/\b(?:out of|from|using|with)\s+(?:my|your|the)\s+(.+?)(?=\s+playlist\b|[,.!?]|$)/i);
   const fromMatch = raw.match(/\b(?:from|use|using|play|queue|based on|inspired by)\s+(.+?)(?=\s+playlist\b|[,.!?]|$)/i);
-  const playlistQuery = linkMatch ? linkMatch[0] : (explicitPlaylistMatch?.[1] || beforePlaylistMatch?.[1] || null);
+  const playlistQuery = linkMatch ? linkMatch[0] : (explicitPlaylistMatch?.[1] || beforePlaylistMatch?.[1] || possessivePlaylistMatch?.[1] || null);
   const similarMatch = raw.match(/\b(?:songs?|music|tracks?)?\s*(?:like|sounds? like|feels? like|in the style of|similar to|inspired by|based on)\s+(.+?)(?=\s+(?:but|with|for|that|which)\b|[,.!?]|$)/i);
   const similar = similarMatch ? parseAiReferenceValue(similarMatch[1], currentTrack) : null;
   const artistMatch = raw.match(/\b(?:songs?|music|tracks?|artists?)\s+(?:by|from)\s+(.+?)(?=\s+(?:but|with|for|that|which)\b|[,.!?]|$)/i);
@@ -789,7 +790,7 @@ function parseAiPrompt(text, currentTrack) {
   return {
     playlistQuery: playlistQuery ? cleanAiReferenceValue(playlistQuery) : "",
     fromQuery: fromMatch ? cleanAiReferenceValue(fromMatch[1]) : "",
-    explicitPlaylist: Boolean(linkMatch || explicitPlaylistMatch || beforePlaylistMatch || /\bplaylist\b/i.test(lower)),
+    explicitPlaylist: Boolean(linkMatch || explicitPlaylistMatch || beforePlaylistMatch || possessivePlaylistMatch || /\bplaylist\b/i.test(lower)),
     similar,
     artistQuery,
   };
@@ -864,7 +865,7 @@ function extractAiArtistCandidate(text) {
   const value = String(text || "")
     .replace(/\b\d+\s*-?\s*(?:songs?|tracks?|hours?|hrs?)\b/gi, " ")
     .replace(/\b(?:make|give|create|build|generate|recommend|find|play|put|queue|add)\b/gi, " ")
-    .replace(/\b(?:me|my|a|an|the|mix|playlist|music|songs?|tracks?|from|like|by|for|with|but|that|this|in|on|to|of|what|should|listen)\b/gi, " ")
+    .replace(/\b(?:me|my|a|an|the|mix|playlist|music|songs?|tracks?|from|like|by|for|with|but|that|this|in|on|to|of|out|some|several|few|what|should|listen)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
   return value.length >= 2 ? value : "";
