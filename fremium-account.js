@@ -334,9 +334,10 @@
       setState({ trainingSyncing: true, trainingError: null });
       suppressAutoSync = true;
       try {
+        const runtime = window.FremiumLiveQI;
+        await runtime?.requestDirectoryPermission?.();
         const session = await getValidSession();
         if (!session?.user?.id) throw new Error("Sign in to back up training files");
-        const runtime = window.FremiumLiveQI;
         const files = await runtime?.getTrainingFiles?.();
         if (!files || typeof files !== "object") throw new Error("Connect the Free Saves folder first");
         const names = TRAINING_FILES.filter(name => files[name] !== undefined);

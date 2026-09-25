@@ -718,7 +718,6 @@
   });
   const getDirectory = async () => {
     if (directoryLoaded) return directoryHandle;
-    directoryLoaded = true;
     try {
       const db = await openDb();
       directoryHandle = await new Promise((resolve, reject) => {
@@ -727,12 +726,24 @@
         request.onerror = () => reject(request.error);
       });
       db.close();
-    } catch {}
+      directoryLoaded = true;
+    } catch {
+      directoryLoaded = false;
+    }
     return directoryHandle;
+  };
+  const requestDirectoryPermission = async () => {
+    const root = directoryHandle || await getDirectory();
+    if (!root) throw new Error("Choose C:\\Free Saves first");
+    if (typeof root.requestPermission !== "function") return true;
+    const permission = await root.requestPermission({ mode: "readwrite" });
+    if (permission !== "granted") throw new Error("Reconnect C:\\Free Saves to allow training-file backups");
+    return true;
   };
   const getQiDirectories = async () => {
     const root = await getDirectory();
     if (!root) return null;
+    await requestDirectoryPermission();
     const fremium = await root.getDirectoryHandle("Fremium", { create: true });
     const qi = await fremium.getDirectoryHandle("QI", { create: true });
     const backups = await qi.getDirectoryHandle("Backups", { create: true });
@@ -1094,6 +1105,7 @@
     saveSnapshot,
     downloadSnapshot,
     getDirectoryStatus,
+    requestDirectoryPermission,
     writeRealtimeFile,
     getTrainingFiles,
     trainingFiles: TRAINING_FILES,
