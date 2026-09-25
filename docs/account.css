@@ -58,7 +58,12 @@ a { color: inherit; text-decoration: none; }
 .account-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
 .account-section-label { margin-bottom: 8px; color: var(--orange-2); text-transform: uppercase; letter-spacing: .13em; font-size: .66rem; font-weight: 850; }
 .account-current { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); }
-.account-current-track { min-width: 0; }
+.account-current-track { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.account-art { width: 52px; height: 52px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; }
+.account-track-copy { min-width: 0; }
+.account-track-copy strong, .account-track-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-list-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.account-list-art { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 7px; object-fit: cover; }
 .account-current-track strong, .account-current-track span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-current-track strong { font-size: .85rem; }
 .account-current-track span { margin-top: 2px; color: var(--muted); font-size: .7rem; }

@@ -2,6 +2,12 @@
   const configKey = "fremium-site-config";
   const sessionKey = "fremium-site-session";
   const fallbackConfig = window.FremiumAccountConfig || {};
+  const artwork = {
+    "let you down": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/6e/96/04/6e9604a8-3270-f86e-0c47-0127141545c3/17UM1IM17084.rgb.jpg/600x600bb.jpg",
+    "the search": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/3e/fe/fa/3efefa81-fa46-8124-46b1-1b340baff0e9/19UMGIM46307.rgb.jpg/600x600bb.jpg",
+    "clouded": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/c2/38/87/c23887b2-b0db-6962-61ac-203f801c5fa3/21UMGIM08880.rgb.jpg/600x600bb.jpg",
+  };
+  const getArtwork = value => artwork[String(value || "").trim().toLowerCase()] || "";
   const demoData = {
     summary: { lifetimePlays: 1284, lifetimeSkips: 92, tracks: 86, playlists: 14, sessionPlays: 18, sessionSkips: 2, repeats: 34, completions: 221, abandonments: 8, queueActions: 47 },
     leaders: [
@@ -10,7 +16,7 @@
       { name: "Clouded", artist: "NF", plays: 22, skips: 1, completions: 19 },
       { name: "Turning Page", artist: "Sleeping At Last", plays: 18, skips: 2, completions: 16 },
     ],
-    currentTrack: { name: "Let You Down", artist: "NF", album: "Perception", qiScore: 87, qiConfidence: 91, qiReasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
+    currentTrack: { name: "Let You Down", artist: "NF", album: "Perception", image: artwork["let you down"], qiScore: 87, qiConfidence: 91, qiReasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
     events: [
       { occurred_at: new Date(Date.now() - 8 * 60000).toISOString(), event_type: "completion", track_name: "Let You Down", artist: "NF" },
       { occurred_at: new Date(Date.now() - 19 * 60000).toISOString(), event_type: "play", track_name: "The Search", artist: "NF" },
@@ -145,6 +151,19 @@
     element.hidden = !text;
   };
   const statCard = (label, value, sub) => `<div class="account-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(sub || "")}</small></div>`;
+  const artworkImage = (source, alt, className) => source ? `<img class="${className}" src="${escapeHtml(source)}" alt="${escapeHtml(alt)}" loading="lazy">` : "";
+  const currentTrackMarkup = current => {
+    const image = current.image || getArtwork(current.name);
+    return `<div class="account-current-track">${artworkImage(image, `${current.name || "Track"} album cover`, "account-art")}<div class="account-track-copy"><strong>${escapeHtml(current.name || "Unknown track")}</strong><span>${escapeHtml(current.artist || "Unknown artist")} · ${escapeHtml(current.album || "Unknown album")}</span></div></div><div class="account-current-qi"><strong>${escapeHtml(current.qiScore ?? "—")}</strong><span>${current.qiConfidence != null ? `${escapeHtml(current.qiConfidence)}% confidence` : "QI score from app"}</span></div>`;
+  };
+  const leaderMarkup = track => {
+    const image = track.image || getArtwork(track.name);
+    return `<div class="account-list-row"><div class="account-list-main">${artworkImage(image, `${track.name || "Track"} album cover`, "account-list-art")}<div class="account-track-copy"><strong>${escapeHtml(track.name || "Unknown track")}</strong><span>${escapeHtml(track.artist || "Unknown artist")}</span></div></div><b>${escapeHtml(formatNumber(track.plays))} plays</b></div>`;
+  };
+  const eventMarkup = event => {
+    const image = event.image || getArtwork(event.track_name);
+    return `<div class="account-list-row"><div class="account-list-main">${artworkImage(image, `${event.track_name || "Track"} album cover`, "account-list-art")}<div class="account-track-copy"><strong>${escapeHtml(event.track_name || "Queue activity")}</strong><span>${escapeHtml(event.artist || "Unknown artist")} · ${escapeHtml(eventLabel(event.event_type))}</span></div></div><b>${escapeHtml(formatDate(event.occurred_at))}</b></div>`;
+  };
   const renderDashboard = (data, demo = false) => {
     const source = data || {};
     const summary = source.summary || deriveSummary(source.events);
@@ -163,9 +182,9 @@
       statCard("Abandonments", formatNumber(summary.abandonments), "Early exits"),
       statCard("Playlists", formatNumber(summary.playlists), "Contexts learned"),
     ].join("");
-    document.getElementById("account-current").innerHTML = current ? `<div class="account-current-track"><strong>${escapeHtml(current.name || "Unknown track")}</strong><span>${escapeHtml(current.artist || "Unknown artist")} · ${escapeHtml(current.album || "Unknown album")}</span></div><div class="account-current-qi"><strong>${escapeHtml(current.qiScore ?? "—")}</strong><span>${current.qiConfidence != null ? `${escapeHtml(current.qiConfidence)}% confidence` : "QI score from app"}</span></div>` : `<div class="account-empty">No current track has been synced yet.</div>`;
-    document.getElementById("account-top").innerHTML = leaders.length ? leaders.slice(0, 5).map(track => `<div class="account-list-row"><div><strong>${escapeHtml(track.name || "Unknown track")}</strong><span>${escapeHtml(track.artist || "Unknown artist")}</span></div><b>${escapeHtml(formatNumber(track.plays))} plays</b></div>`).join("") : `<div class="account-empty">Top tracks appear after Fremium syncs listening data.</div>`;
-    document.getElementById("account-recent").innerHTML = events.length ? events.slice(0, 8).map(event => `<div class="account-list-row"><div><strong>${escapeHtml(event.track_name || "Queue activity")}</strong><span>${escapeHtml(event.artist || "Unknown artist")} · ${escapeHtml(eventLabel(event.event_type))}</span></div><b>${escapeHtml(formatDate(event.occurred_at))}</b></div>`).join("") : `<div class="account-empty">Recent listening activity appears here.</div>`;
+    document.getElementById("account-current").innerHTML = current ? currentTrackMarkup(current) : `<div class="account-empty">No current track has been synced yet.</div>`;
+    document.getElementById("account-top").innerHTML = leaders.length ? leaders.slice(0, 5).map(leaderMarkup).join("") : `<div class="account-empty">Top tracks appear after Fremium syncs listening data.</div>`;
+    document.getElementById("account-recent").innerHTML = events.length ? events.slice(0, 8).map(eventMarkup).join("") : `<div class="account-empty">Recent listening activity appears here.</div>`;
     const reasons = current?.qiReasons || [];
     document.getElementById("account-qi").innerHTML = `<div class="account-section-label">Queue Intelligence</div><div class="account-qi-grid"><div><strong>${escapeHtml(current?.qiScore ?? "—")}</strong><span>Current QI score</span></div><div><strong>${escapeHtml(summary.lifetimePlays || 0)}</strong><span>Lifetime plays</span></div><div><strong>${escapeHtml(summary.completions || 0)}</strong><span>Completions</span></div><div><strong>${escapeHtml(summary.repeats || 0)}</strong><span>Replays</span></div></div><div class="account-reasons">${reasons.length ? reasons.slice(0, 4).map(reason => `<span>${escapeHtml(reason)}</span>`).join("") : `<span>Open Song QI in Fremium to see the current explanation.</span>`}</div>`;
   };

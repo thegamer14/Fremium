@@ -83,7 +83,8 @@
     .scene span { color: var(--muted); font-size: .76rem; }
     .demo-card { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: rgba(9,8,7,.68); }
     .demo-track { display: flex; align-items: center; gap: 14px; }
-    .cover { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 14px; background: linear-gradient(135deg, #71351d, #192b25); color: var(--green); font-weight: 900; }
+    .cover { display: grid; place-items: center; width: 64px; height: 64px; overflow: hidden; border-radius: 14px; background: linear-gradient(135deg, #71351d, #192b25); color: var(--green); font-weight: 900; }
+    .cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .demo-track h3 { margin: 0; font-size: 1.1rem; }
     .demo-track p { margin: 3px 0 0; color: var(--muted); font-size: .8rem; }
     .demo-score { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 24px 0 14px; }
@@ -245,7 +246,7 @@
           <button class="scene" data-scene="discovery"><strong>Discovery</strong><span>novel but related</span></button>
         </div>
         <div class="demo-card">
-          <div class="demo-track"><div class="cover" id="demo-cover">QI</div><div><h3 id="demo-title">Let You Down</h3><p id="demo-artist">NF · Current session</p></div></div>
+          <div class="demo-track"><div class="cover" id="demo-cover"><img src="https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/6e/96/04/6e9604a8-3270-f86e-0c47-0127141545c3/17UM1IM17084.rgb.jpg/600x600bb.jpg" alt="Perception album cover" onerror="this.remove(); this.parentElement.textContent='QI';"></div><div><h3 id="demo-title">Let You Down</h3><p id="demo-artist">NF · Current session</p></div></div>
           <div class="demo-score"><strong id="demo-score">87</strong><span id="demo-confidence">91% confidence<br><span id="demo-context">lateNight · weekday</span></span></div>
           <div class="bar"><span id="demo-bar" style="width:87%"></span></div>
           <div class="bar-line"><span id="demo-positive">Replay +21 · Completion +18</span><span id="demo-negative">Skip −4</span></div>
@@ -309,16 +310,16 @@
 
   <script>
     const scenes = {
-      night: { title: "Let You Down", artist: "NF · late-night focus", cover: "QI", score: 87, confidence: 91, context: "lateNight · weekday", positive: "Replay +21 · Completion +18", negative: "Skip −4", reasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
-      focus: { title: "The Search", artist: "NF · deep focus", cover: "NF", score: 78, confidence: 84, context: "afternoon · weekday", positive: "Completion +17 · Position +9", negative: "Recently played −3", reasons: ["Strong completion history", "Usually chosen early", "No recent skips"] },
-      discovery: { title: "Clouded", artist: "NF · discovery branch", cover: "CL", score: 64, confidence: 57, context: "evening · weekend", positive: "Flow +8 · Artist +6", negative: "New track −2", reasons: ["New neighboring track", "Related artist signal", "Still learning your fit"] }
+      night: { title: "Let You Down", artist: "NF · late-night focus", cover: "QI", art: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/6e/96/04/6e9604a8-3270-f86e-0c47-0127141545c3/17UM1IM17084.rgb.jpg/600x600bb.jpg", score: 87, confidence: 91, context: "lateNight · weekday", positive: "Replay +21 · Completion +18", negative: "Skip −4", reasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
+      focus: { title: "The Search", artist: "NF · deep focus", cover: "NF", art: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/3e/fe/fa/3efefa81-fa46-8124-46b1-1b340baff0e9/19UMGIM46307.rgb.jpg/600x600bb.jpg", score: 78, confidence: 84, context: "afternoon · weekday", positive: "Completion +17 · Position +9", negative: "Recently played −3", reasons: ["Strong completion history", "Usually chosen early", "No recent skips"] },
+      discovery: { title: "Clouded", artist: "NF · discovery branch", cover: "CL", art: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/c2/38/87/c23887b2-b0db-6962-61ac-203f801c5fa3/21UMGIM08880.rgb.jpg/600x600bb.jpg", score: 64, confidence: 57, context: "evening · weekend", positive: "Flow +8 · Artist +6", negative: "New track −2", reasons: ["New neighboring track", "Related artist signal", "Still learning your fit"] }
     };
     const setScene = name => {
       const scene = scenes[name];
       document.querySelectorAll(".scene").forEach(button => button.classList.toggle("active", button.dataset.scene === name));
       document.getElementById("demo-title").textContent = scene.title;
       document.getElementById("demo-artist").textContent = scene.artist;
-      document.getElementById("demo-cover").textContent = scene.cover;
+      document.getElementById("demo-cover").innerHTML = `<img src="${scene.art}" alt="${scene.title} album cover" onerror="this.remove(); this.parentElement.textContent='${scene.cover}';">`;
       document.getElementById("demo-score").textContent = scene.score;
       document.getElementById("demo-confidence").innerHTML = scene.confidence + "% confidence<br><span>" + scene.context + "</span>";
       document.getElementById("demo-bar").style.width = scene.score + "%";
