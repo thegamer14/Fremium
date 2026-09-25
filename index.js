@@ -1278,7 +1278,8 @@ function FremiumAccountPanel() {
         mode === "signup" ? field("Username", "text", displayName, setDisplayName, { placeholder: "Choose a username", autoComplete: "username", required: true }) : null,
         react.createElement("div", { className: "fremium-actions" },
           react.createElement("button", { className: "fremium-btn primary", type: "button", onClick: submitAuth, disabled: busy || !account.configured }, mode === "signup" ? "Create account" : "Sign in"),
-          react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => setMode(value => value === "signin" ? "signup" : "signin"), disabled: busy }, mode === "signup" ? "Use sign in" : "Create account")
+          react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => setMode(value => value === "signin" ? "signup" : "signin"), disabled: busy }, mode === "signup" ? "Use sign in" : "Create account"),
+          react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => run(() => runtime.resendVerification(email), "Verification email sent"), disabled: busy || !email.trim() }, "Resend verification")
         )
       )
     ),

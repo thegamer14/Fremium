@@ -15,7 +15,7 @@ Fremium can sync private listening events and Queue Intelligence summaries to a 
 3. The public project URL and publishable key are bundled in [`fremium-account-config.js`](fremium-account-config.js) and [`docs/account-config.js`](docs/account-config.js); normal users do not need to configure them.
 4. Open the main **Fremium** page and create an account with a username, email, and password.
 5. Use **Sync now** or leave automatic sync enabled.
-6. Open the website and sign in with the same email and password.
+6. Open the website and sign in with the same email and password. If the confirmation message is missing, use **Resend verification email**; Supabase applies resend rate limits.
 
 The publishable key is public by design; row-level security restricts profile, event, and QI snapshot access to the authenticated owner. Never put the Supabase secret key in the app, site, or repository. Fremium does not ask for or store a Spotify password. Access and refresh tokens remain in the local app/browser session, and the account is not a substitute for Spotify OAuth.
 

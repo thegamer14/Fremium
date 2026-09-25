@@ -179,6 +179,16 @@
     scheduleSync();
     return result.user || null;
   };
+  const resendVerification = async email => {
+    const address = String(email || "").trim();
+    if (!address) throw new Error("Email is required");
+    await request("auth/v1/resend", {
+      method: "POST",
+      auth: false,
+      body: { type: "signup", email: address, options: { emailRedirectTo: defaultConfig.siteUrl || "https://thegamer14.github.io/Fremium/" } },
+    });
+    return { sent: true, email: address };
+  };
   const signOut = async () => {
     try {
       if (getSession()?.access_token) await request("auth/v1/logout", { method: "POST" });
@@ -366,6 +376,7 @@
     clearConfig,
     signUp,
     signIn,
+    resendVerification,
     signOut,
     sync,
     subscribe,

@@ -210,6 +210,16 @@
     }
     return { requiresConfirmation: true };
   };
+  const resendVerification = async email => {
+    const address = String(email || "").trim();
+    if (!address) throw new Error("Email is required");
+    await request("auth/v1/resend", {
+      method: "POST",
+      auth: false,
+      body: { type: "signup", email: address, options: { emailRedirectTo: fallbackConfig.siteUrl || `${window.location.origin}${window.location.pathname}` } },
+    });
+    return { sent: true, email: address };
+  };
   const signOut = async () => {
     try { if (getSession()?.access_token) await request("auth/v1/logout", { method: "POST" }); } catch {}
     removeStored(sessionStorage, sessionKey);
@@ -252,6 +262,15 @@
       toggle.textContent = signup ? "Already have an account? Sign in" : "Need an account? Create one";
     };
     toggle.addEventListener("click", () => { mode = mode === "signin" ? "signup" : "signin"; updateMode(); });
+    document.getElementById("account-resend").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await resendVerification(document.getElementById("account-email").value);
+        message("If that account needs verification, a new email has been sent.", "ok");
+      } catch (error) { message(error.message, "error"); }
+      finally { button.disabled = false; }
+    });
     form.addEventListener("submit", async event => {
       event.preventDefault();
       const button = submit;
@@ -280,5 +299,5 @@
     initializeAuth().catch(() => showSignedOut());
   };
   init();
-  window.FremiumSiteAccount = { getConfig, setConfig, signIn, signUp, signOut, loadDashboard, getSession, verifyAuthCallback };
+  window.FremiumSiteAccount = { getConfig, setConfig, signIn, signUp, resendVerification, signOut, loadDashboard, getSession, verifyAuthCallback };
 })();
