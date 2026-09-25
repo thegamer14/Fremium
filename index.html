@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Fremium is a Spicetify CustomApp for smarter queues, AI playlists, and listening intelligence.">
   <title>Fremium — Listen with a memory</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
   <style>
     :root {
       --bg: #0c0b0a;
@@ -33,7 +34,7 @@
     .shell { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
     .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; position: sticky; top: 0; z-index: 10; background: rgba(12, 11, 10, .82); backdrop-filter: blur(18px); }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 850; letter-spacing: -.02em; }
-    .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: #17100b; background: linear-gradient(135deg, var(--orange-2), var(--orange)); box-shadow: 0 0 24px rgba(255, 107, 44, .28); }
+    .brand-mark { display: block; width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 0 24px rgba(164, 92, 53, .2); }
     .nav-links { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: .88rem; }
     .nav-links a:hover { color: var(--text); }
     .nav-button, .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; color: var(--text); background: rgba(255,255,255,.05); font-weight: 750; cursor: pointer; transition: transform .18s, border-color .18s, background .18s; }
@@ -187,7 +188,7 @@
 </head>
 <body>
   <header class="nav shell">
-    <a class="brand" href="#top" aria-label="Fremium home"><span class="brand-mark">F</span><span>Fremium</span></a>
+    <a class="brand" href="#top" aria-label="Fremium home"><img class="brand-mark" src="logo.svg" alt=""><span>Fremium</span></a>
     <nav class="nav-links" aria-label="Primary navigation">
       <a href="#demo">Live demo</a>
       <a href="#features">Features</a>
