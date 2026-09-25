@@ -7,6 +7,7 @@
   <title>Fremium Account</title>
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="account.css">
+  <link rel="stylesheet" href="account-live.css">
 </head>
 <body>
   <header class="nav shell">
@@ -43,7 +44,7 @@
         </div>
         <div id="account-signed-in" hidden>
           <h3>Your private dashboard</h3>
-          <p>Refresh whenever you want the latest data from the Fremium app.</p>
+          <p>This dashboard refreshes automatically every 5 seconds while you are signed in.</p>
           <div class="account-user" id="account-user"></div>
           <div class="account-dashboard-actions"><button class="button primary small" id="account-refresh" type="button">Refresh stats</button><button class="button secondary small" id="account-signout" type="button">Sign out</button></div>
         </div>
@@ -51,6 +52,14 @@
       </div>
       <div class="account-card account-dashboard">
         <div class="account-dashboard-head"><div><div class="eyebrow">Personal dashboard</div><h3 id="account-dashboard-title">Connect to see your stats</h3></div><span class="account-live">PRIVATE</span></div>
+        <div class="account-live-panel">
+          <div class="account-live-heading"><div><div class="eyebrow">Live session</div><h3>Queue Intelligence</h3></div><div class="account-live-status waiting" id="account-live-status"><span class="account-live-dot"></span><span id="account-live-status-text">WAITING</span></div></div>
+          <div class="account-now-card" id="account-now-card"></div>
+          <div class="account-context-card" id="account-context-card">
+            <div id="account-context-tabs"></div>
+            <div id="account-context-summary"></div>
+          </div>
+        </div>
         <div class="account-stats" id="account-stats"></div>
         <div class="account-content">
           <div><div class="account-section-label">Current song</div><div class="account-current" id="account-current"></div><div class="account-section-label" style="margin-top:18px">Top tracks</div><div class="account-list" id="account-top"></div></div>

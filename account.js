@@ -1,6 +1,12 @@
 (() => {
   const configKey = "fremium-site-config";
   const sessionKey = "fremium-site-session";
+  const liveRefreshMs = 5000;
+  let liveTimer = null;
+  let liveSession = null;
+  let dashboardPromise = null;
+  let selectedContext = "current";
+  let latestData = null;
   const fallbackConfig = window.FremiumAccountConfig || {};
   const artwork = {
     "let you down": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/6e/96/04/6e9604a8-3270-f86e-0c47-0127141545c3/17UM1IM17084.rgb.jpg/600x600bb.jpg",
@@ -8,6 +14,69 @@
     "clouded": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/c2/38/87/c23887b2-b0db-6962-61ac-203f801c5fa3/21UMGIM08880.rgb.jpg/600x600bb.jpg",
   };
   const getArtwork = value => artwork[String(value || "").trim().toLowerCase()] || "";
+  const asNumber = value => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const formatScore = value => {
+    const number = asNumber(value);
+    return number == null ? "—" : String(Math.round(number));
+  };
+  const formatComponent = value => {
+    const number = asNumber(value);
+    if (number == null) return "—";
+    return `${number > 0 ? "+" : ""}${Math.round(number)}`;
+  };
+  const contextLabel = value => {
+    const text = String(value || "").trim();
+    if (!text || text === "global") return "Global";
+    if (text.includes("playlist")) return "Playlist";
+    if (text.includes("album")) return "Album";
+    if (text.includes("artist")) return "Artist";
+    return text.length > 28 ? `${text.slice(0, 25)}…` : text;
+  };
+  const formatTime = value => String(value || "").replace(":", " · ");
+  const contextValues = (current, events, contextUri) => {
+    const values = [current?.qiContext || contextUri || "global"];
+    events.forEach(event => { if (event.context_uri && !values.includes(event.context_uri)) values.push(event.context_uri); });
+    return values.slice(0, 4);
+  };
+  const liveImage = (source, alt, className, fallback = "QI") => source ? `<img class="${className}" src="${escapeHtml(source)}" alt="${escapeHtml(alt)}">` : `<div class="${className} ${className}-fallback">${escapeHtml(fallback)}</div>`;
+  const setLiveStatus = (label, kind = "connected") => {
+    const status = document.getElementById("account-live-status");
+    const text = document.getElementById("account-live-status-text");
+    if (!status || !text) return;
+    status.className = `account-live-status ${kind}`;
+    text.textContent = label;
+  };
+  const nowPlayingMarkup = (current, contextUri) => {
+    const name = current?.name || "Waiting for Spotify";
+    const artist = current?.artist || "Open Fremium to start a session";
+    const album = current?.album || "No current track synced";
+    const score = asNumber(current?.qiScore);
+    const scoreWidth = score == null ? 0 : Math.max(0, Math.min(100, score));
+    const confidence = current?.qiConfidence == null ? "QI score from app" : `${escapeHtml(current.qiConfidence)}% confidence`;
+    const components = current?.qiComponents || current?.qi_components || {};
+    const reasons = Array.isArray(current?.qiReasons) ? current.qiReasons : [];
+    const context = current?.qiContext || contextUri || "global";
+    const timeDetail = current?.qiTime ? ` · ${escapeHtml(formatTime(current.qiTime))}` : "";
+    const componentMarkup = [["Replay", components.replay], ["Completion", components.completion], ["Skip", components.skip]].map(([label, value]) => `<span>${label}<strong>${formatComponent(value)}</strong></span>`).join("");
+    const reasonMarkup = reasons.length ? reasons.slice(0, 4).map(reason => `<span>${escapeHtml(reason)}</span>`).join("") : `<span>Waiting for Queue Intelligence signals</span>`;
+    return `<div class="account-now-top"><span>Now playing · Queue Intelligence</span><span>${current ? "● CONNECTED" : "● WAITING"}</span></div>${liveImage(current?.image || getArtwork(current?.name), `${name} album cover`, "account-now-cover", "QI")}<div class="account-now-info"><div class="account-now-title"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(artist)} · ${escapeHtml(album)}</span><span>${escapeHtml(contextLabel(context))}${timeDetail}</span></div><div class="account-now-score"><strong>${formatScore(score)}</strong> <small>/ 100</small><span class="account-now-confidence">${confidence}</span></div></div><div class="account-score-bar"><span style="width:${scoreWidth}%"></span></div><div class="account-components">${componentMarkup}</div><div class="account-now-reasons">${reasonMarkup}</div>`;
+  };
+  const contextTabsMarkup = (current, events, contextUri) => {
+    const currentValue = current?.qiContext || contextUri || "global";
+    const values = contextValues(current, events, contextUri);
+    const tabs = [{ value: "current", label: "Current session", detail: formatTime(current?.qiTime) || "Live" }, ...values.map(value => ({ value, label: contextLabel(value), detail: value === currentValue ? "Current" : "Synced" }))];
+    return tabs.map(tab => `<button class="account-context-tab${tab.value === selectedContext ? " active" : ""}" type="button" data-context="${escapeHtml(tab.value)}"><strong>${escapeHtml(tab.label)}</strong><span>${escapeHtml(tab.detail)}</span></button>`).join("");
+  };
+  const contextSummaryMarkup = (current, contextUri) => {
+    if (!current) return `<div class="account-context-empty">Current Queue Intelligence data will appear after Fremium syncs a track.</div>`;
+    const image = current.image || getArtwork(current.name);
+    const context = current.qiContext || contextUri || "global";
+    const contextText = formatTime(current.qiTime) || contextLabel(context);
+    return `<div class="account-context-track">${liveImage(image, `${current.name || "Track"} album cover`, "account-context-art", "QI")}<div class="account-context-copy"><strong>${escapeHtml(current.name || "Unknown track")}</strong><span>${escapeHtml(current.artist || "Unknown artist")} · ${escapeHtml(contextText)}</span></div></div><div class="account-context-score"><strong>${formatScore(current.qiScore)}</strong><span>${current.qiConfidence == null ? "QI score" : `${escapeHtml(current.qiConfidence)}% confidence`}</span></div>`;
+  };
   const getStored = (storage, key, fallback = null) => {
     try {
       const value = storage.getItem(key);
@@ -149,11 +218,20 @@
   };
   const renderDashboard = data => {
     const source = data || {};
+    latestData = source;
     const summary = source.summary || deriveSummary(source.events);
     const leaders = Array.isArray(source.leaders) ? source.leaders : [];
     const current = source.currentTrack || source.current_track || null;
     const events = Array.isArray(source.events) ? source.events : [];
+    const contextUri = source.contextUri || source.context_uri || current?.qiContext || "global";
+    const currentContext = current?.qiContext || (contextUri === "global" ? "" : contextUri);
+    const contextOptions = contextValues(current, events, contextUri);
+    if (selectedContext !== "current" && !contextOptions.includes(selectedContext)) selectedContext = "current";
+    const visibleEvents = selectedContext === "current" ? (currentContext ? events.filter(event => event.context_uri === currentContext) : events) : events.filter(event => event.context_uri === selectedContext);
     document.getElementById("account-dashboard-title").textContent = current?.name ? `Last synced: ${current.name}` : "Sign in to load your stats";
+    document.getElementById("account-now-card").innerHTML = nowPlayingMarkup(current, contextUri);
+    document.getElementById("account-context-card").innerHTML = `<div class="account-context-head"><div><div class="eyebrow">Listening context</div><h3>Queue Intelligence, in context.</h3><p>Live signals from the session synced by Fremium.</p></div></div><div class="account-context-tabs" id="account-context-tabs">${contextTabsMarkup(current, events, contextUri)}</div><div class="account-context-summary" id="account-context-summary">${contextSummaryMarkup(current, contextUri)}</div>`;
+    document.getElementById("account-context-tabs").querySelectorAll("[data-context]").forEach(button => button.addEventListener("click", () => { selectedContext = button.dataset.context; renderDashboard(latestData); }));
     document.getElementById("account-stats").innerHTML = [
       statCard("Lifetime plays", formatNumber(summary.lifetimePlays), "Observed by Fremium"),
       statCard("Tracks learned", formatNumber(summary.tracks), "Unique listening signals"),
@@ -166,13 +244,15 @@
     ].join("");
     document.getElementById("account-current").innerHTML = current ? currentTrackMarkup(current) : `<div class="account-empty">No current track has been synced yet.</div>`;
     document.getElementById("account-top").innerHTML = leaders.length ? leaders.slice(0, 5).map(leaderMarkup).join("") : `<div class="account-empty">Top tracks appear after Fremium syncs listening data.</div>`;
-    document.getElementById("account-recent").innerHTML = events.length ? events.slice(0, 8).map(eventMarkup).join("") : `<div class="account-empty">Recent listening activity appears here.</div>`;
+    document.getElementById("account-recent").innerHTML = visibleEvents.length ? visibleEvents.slice(0, 8).map(eventMarkup).join("") : `<div class="account-empty">Recent listening activity appears here.</div>`;
     const reasons = current?.qiReasons || [];
     document.getElementById("account-qi").innerHTML = `<div class="account-section-label">Queue Intelligence</div><div class="account-qi-grid"><div><strong>${escapeHtml(current?.qiScore ?? "—")}</strong><span>Current QI score</span></div><div><strong>${escapeHtml(summary.lifetimePlays || 0)}</strong><span>Lifetime plays</span></div><div><strong>${escapeHtml(summary.completions || 0)}</strong><span>Completions</span></div><div><strong>${escapeHtml(summary.repeats || 0)}</strong><span>Replays</span></div></div><div class="account-reasons">${reasons.length ? reasons.slice(0, 4).map(reason => `<span>${escapeHtml(reason)}</span>`).join("") : `<span>Open Song QI in Fremium to see the current explanation.</span>`}</div>`;
   };
   const showSignedOut = () => {
+    stopLiveRefresh();
     document.getElementById("account-signed-out").hidden = false;
     document.getElementById("account-signed-in").hidden = true;
+    setLiveStatus("OFFLINE", "offline");
   };
   const showSignedIn = session => {
     document.getElementById("account-signed-out").hidden = true;
@@ -180,23 +260,57 @@
     const user = session?.user || {};
     const label = user.user_metadata?.username || user.email || "Signed in";
     document.getElementById("account-user").textContent = `${label} · private dashboard`;
+    setLiveStatus("CONNECTING", "connecting");
   };
-  const loadDashboard = async session => {
-    const [snapshotResult, eventResult] = await Promise.all([
-      request("rest/v1/fremium_qi_snapshots?select=summary,leaders,current_track,snapshot_at,session_id&order=snapshot_at.desc&limit=1"),
-      request("rest/v1/fremium_listening_events?select=occurred_at,event_type,track_uri,track_name,artist,album,context_uri&order=occurred_at.desc&limit=200"),
-    ]);
-    const snapshot = Array.isArray(snapshotResult) ? snapshotResult[0] : null;
-    renderDashboard({ summary: snapshot?.summary, leaders: snapshot?.leaders, currentTrack: snapshot?.current_track, events: Array.isArray(eventResult) ? eventResult : [] });
-    const user = session?.user || {};
-    const label = user.user_metadata?.username || user.email || "Signed in";
-    document.getElementById("account-user").textContent = `${label} · synced ${formatDate(snapshot?.snapshot_at)}`;
+  const refreshLiveDashboard = async session => {
+    try {
+      await loadDashboard(session);
+      return true;
+    } catch (error) {
+      setLiveStatus("OFFLINE", "offline");
+      return false;
+    }
+  };
+  const stopLiveRefresh = () => {
+    if (liveTimer) clearInterval(liveTimer);
+    liveTimer = null;
+    liveSession = null;
+  };
+  const startLiveRefresh = session => {
+    stopLiveRefresh();
+    liveSession = session;
+    setLiveStatus("CONNECTING", "connecting");
+    const firstRefresh = refreshLiveDashboard(session);
+    liveTimer = setInterval(() => {
+      if (document.visibilityState === "visible" && liveSession) refreshLiveDashboard(liveSession);
+    }, liveRefreshMs);
+    return firstRefresh;
+  };
+  const loadDashboard = session => {
+    if (dashboardPromise) return dashboardPromise;
+    dashboardPromise = (async () => {
+      const [snapshotResult, eventResult, syncResult] = await Promise.all([
+        request("rest/v1/fremium_qi_snapshots?select=summary,leaders,current_track,context_uri,snapshot_at,session_id&order=snapshot_at.desc&limit=1"),
+        request("rest/v1/fremium_listening_events?select=occurred_at,event_type,track_uri,track_name,artist,album,context_uri&order=occurred_at.desc&limit=200"),
+        request("rest/v1/fremium_sync_state?select=last_synced_at,last_event_at&limit=1"),
+      ]);
+      const snapshot = Array.isArray(snapshotResult) ? snapshotResult[0] : null;
+      const sync = Array.isArray(syncResult) ? syncResult[0] : null;
+      const data = { summary: snapshot?.summary, leaders: snapshot?.leaders, currentTrack: snapshot?.current_track, contextUri: snapshot?.context_uri, events: Array.isArray(eventResult) ? eventResult : [], lastSyncedAt: sync?.last_synced_at || snapshot?.snapshot_at };
+      renderDashboard(data);
+      const user = session?.user || {};
+      const label = user.user_metadata?.username || user.email || "Signed in";
+      document.getElementById("account-user").textContent = `${label} · synced ${formatDate(data.lastSyncedAt)}`;
+      setLiveStatus(data.currentTrack?.name ? "CONNECTED" : "WAITING", data.currentTrack?.name ? "connected" : "waiting");
+      return data;
+    })().finally(() => { dashboardPromise = null; });
+    return dashboardPromise;
   };
   const signIn = async (email, password) => {
     const result = await request("auth/v1/token?grant_type=password", { method: "POST", auth: false, body: { email, password } });
     const session = storeSession(result);
     showSignedIn(session);
-    await loadDashboard(session);
+    await startLiveRefresh(session);
     return session;
   };
   const signUp = async (email, password, username) => {
@@ -206,7 +320,7 @@
     if (result?.access_token) {
       const session = storeSession(result);
       showSignedIn(session);
-      await loadDashboard(session);
+      await startLiveRefresh(session);
       return { session };
     }
     return { requiresConfirmation: true };
@@ -233,7 +347,7 @@
       const callbackSession = await verifyAuthCallback();
       if (callbackSession) {
         showSignedIn(callbackSession);
-        await loadDashboard(callbackSession);
+        await startLiveRefresh(callbackSession);
         message("Email verified. Your Fremium account is ready.", "ok");
         return;
       }
@@ -243,7 +357,7 @@
     const session = await getValidSession();
     if (session) {
       showSignedIn(session);
-      loadDashboard(session).catch(error => message(error.message, "error"));
+      startLiveRefresh(session).catch(error => message(error.message, "error"));
     } else {
       showSignedOut();
     }
@@ -301,5 +415,5 @@
     initializeAuth().catch(() => showSignedOut());
   };
   init();
-  window.FremiumSiteAccount = { getConfig, setConfig, signIn, signUp, resendVerification, signOut, loadDashboard, getSession, verifyAuthCallback };
+  window.FremiumSiteAccount = { getConfig, setConfig, signIn, signUp, resendVerification, signOut, loadDashboard, getSession, verifyAuthCallback, startLiveRefresh, stopLiveRefresh };
 })();

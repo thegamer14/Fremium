@@ -1,0 +1,54 @@
+.account-live-panel { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.account-live-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.account-live-heading h3 { margin: 5px 0 0; }
+.account-live-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid rgba(185,231,105,.28); border-radius: 999px; color: var(--green); font-size: .64rem; font-weight: 850; letter-spacing: .1em; }
+.account-live-status.offline { border-color: rgba(255,107,44,.3); color: var(--orange-2); }
+.account-live-status.waiting { border-color: rgba(255,155,95,.25); color: var(--orange-2); }
+.account-live-status.connecting { border-color: rgba(255,155,95,.25); color: var(--orange-2); }
+.account-live-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(185,231,105,.1); }
+.account-now-card { padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(0,0,0,.2)); }
+.account-now-top, .account-now-score-row, .account-context-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.account-now-top { color: var(--orange-2); font-size: .67rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.account-now-top span:last-child { color: var(--green); }
+.account-now-cover { width: 100%; aspect-ratio: 2.05 / 1; margin-top: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); border-radius: 13px; background: linear-gradient(135deg, #192b25, #101b1b 60%, #080908); }
+.account-now-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.account-now-cover-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: rgba(255,247,239,.75); font-size: 2.2rem; font-weight: 900; letter-spacing: -.1em; }
+.account-now-info { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-top: 15px; }
+.account-now-title { min-width: 0; }
+.account-now-title strong, .account-now-title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-now-title strong { font-size: 1.15rem; letter-spacing: -.04em; }
+.account-now-title span { margin-top: 3px; color: var(--muted); font-size: .76rem; }
+.account-now-score { flex: 0 0 auto; color: var(--green); text-align: right; }
+.account-now-score strong { font-size: 2.3rem; line-height: .9; letter-spacing: -.07em; }
+.account-now-score small { color: var(--muted); font-size: .7rem; }
+.account-now-confidence { display: block; margin-top: 5px; color: var(--orange-2); font-size: .72rem; }
+.account-score-bar { height: 7px; margin-top: 14px; overflow: hidden; border-radius: 20px; background: rgba(255,255,255,.1); }
+.account-score-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--green)); transition: width .35s ease; }
+.account-components { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
+.account-components span { color: var(--muted); font-size: .68rem; }
+.account-components strong { margin-left: 3px; color: var(--text); }
+.account-now-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.account-now-reasons span { padding: 5px 8px; border: 1px solid rgba(185,231,105,.2); border-radius: 999px; color: var(--green); background: rgba(185,231,105,.07); font-size: .66rem; }
+.account-context-card { margin-top: 14px; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(140deg, rgba(255,107,44,.1), rgba(255,255,255,.025)); }
+.account-context-head { align-items: start; }
+.account-context-head h3 { margin: 5px 0 0; font-size: 1.25rem; letter-spacing: -.04em; }
+.account-context-head p { max-width: 360px; margin: 7px 0 0; color: var(--muted); font-size: .78rem; }
+.account-context-tabs { display: grid; gap: 7px; margin-top: 16px; }
+.account-context-tab { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: rgba(255,255,255,.035); text-align: left; cursor: pointer; }
+.account-context-tab:hover, .account-context-tab.active { border-color: rgba(255,155,95,.65); background: rgba(255,107,44,.12); }
+.account-context-tab strong { font-size: .78rem; }
+.account-context-tab span { color: var(--muted); font-size: .68rem; }
+.account-context-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(0,0,0,.2); }
+.account-context-track { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.account-context-art { width: 42px; height: 42px; flex: 0 0 auto; border-radius: 8px; object-fit: cover; }
+.account-context-art-fallback { display: grid; place-items: center; color: var(--green); font-size: .7rem; font-weight: 900; }
+.account-context-copy { min-width: 0; }
+.account-context-copy strong, .account-context-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-context-copy strong { font-size: .78rem; }
+.account-context-copy span { margin-top: 2px; color: var(--muted); font-size: .67rem; }
+.account-context-score { flex: 0 0 auto; color: var(--green); text-align: right; }
+.account-context-score strong { display: block; font-size: 1.4rem; line-height: .9; }
+.account-context-score span { display: block; margin-top: 4px; color: var(--orange-2); font-size: .64rem; }
+.account-context-empty { padding: 12px; color: var(--muted); font-size: .76rem; }
+@media (max-width: 820px) { .account-context-card { padding: 16px; } }
+@media (max-width: 480px) { .account-now-info { align-items: start; flex-direction: column; } .account-now-score { text-align: left; } .account-components { grid-template-columns: 1fr; } .account-context-summary { align-items: start; flex-direction: column; } .account-context-score { text-align: left; } }
