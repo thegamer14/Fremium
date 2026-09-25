@@ -6,6 +6,8 @@ Fremium is a Spicetify CustomApp for music discovery, listening insights, and pl
 
 Try the self-contained GitHub Pages demo: [fremium demo](https://thegamer14.github.io/Fremium/)
 
+Open the private dashboard separately: [Fremium account](https://thegamer14.github.io/Fremium/account.html)
+
 ## Fremium Account Sync
 
 Fremium can sync private listening events and Queue Intelligence summaries to a Supabase-backed account. The website then shows the user’s current song, recent activity, top tracks, lifetime listening totals, and QI scores.
