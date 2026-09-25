@@ -3,6 +3,9 @@
 /* Sidebar root */
 .fremium-root { padding: 24px; max-width: 920px; margin: 0 auto; color: var(--spice-text); }
 .fremium-hero h1 { font-size: 2.2rem; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+.fremium-page-brand { display:flex; align-items:center; gap:10px; }
+.fremium-page-logo { width:36px; height:36px; flex:0 0 auto; }
+.fremium-page-logo svg, .fremium-logo svg { display:block; width:100%; height:100%; }
 .fremium-sub { color: var(--spice-subtext); margin: 6px 0 0; }
 .fremium-card { background: var(--spice-card, var(--spice-main-elevated, #1e1e1e)); border-radius: 12px; padding: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.25); }
 .fremium-card h3 { margin: 0 0 8px; font-size: 1rem; }
@@ -70,11 +73,13 @@
 .fremium-account-note{ margin:12px 0 0; color:var(--spice-subtext); font-size:.75rem; line-height:1.4; }
 
 /* Top bar button */
-.fremium-topbtn{ margin-left:12px; background: var(--spice-button-active, #1db954); color:#000; border:none; padding:6px 12px; border-radius:16px; font-weight:700; cursor:pointer; font-size:0.8rem; }
+.fremium-topbtn{ display:inline-flex; align-items:center; gap:6px; margin-left:12px; background:#101010; color:var(--spice-text,#fff); border:1px solid rgba(164,92,53,.7); padding:5px 10px; border-radius:16px; font-weight:700; cursor:pointer; font-size:0.8rem; }
+.fremium-topbtn svg{ width:20px; height:20px; display:block; }
 .fremium-topbtn:hover{ transform: scale(1.04); }
 
 /* Persistent overlay */
-.fremium-floating-launcher{ position:fixed; right:18px; bottom:88px; z-index:10000; width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,.2); background:var(--spice-button-active,#1db954); color:#000; font-size:1.2rem; font-weight:800; cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+.fremium-floating-launcher{ display:grid; place-items:center; position:fixed; right:18px; bottom:88px; z-index:10000; width:46px; height:46px; padding:5px; border-radius:12px; border:1px solid #a45c35; background:#101010; cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+.fremium-floating-launcher svg{ width:32px; height:32px; display:block; }
 .fremium-floating-launcher:hover{ transform:scale(1.06); }
 
 /* Floating window */
@@ -103,7 +108,7 @@
 }
 .fremium-win-header:active{ cursor: grabbing; }
 .fremium-win-title{ display:flex; align-items:center; gap:8px; font-size:0.95rem; }
-.fremium-logo{ font-size:1.1rem; }
+.fremium-logo{ display:inline-grid; place-items:center; width:26px; height:26px; flex:0 0 auto; }
 .fremium-badge{ background: rgba(0,0,0,0.15); padding:2px 6px; border-radius:8px; font-size:0.65rem; letter-spacing:.04em; }
 .fremium-win-controls{ display:flex; gap:6px; }
 .fremium-win-controls button{

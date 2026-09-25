@@ -25,6 +25,8 @@ const LS = {
   trainLog: `${APP_ID}:queue:train`,
   aiHistory: `${APP_ID}:ai:history`,
 };
+const FREMIUM_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true"><rect width="128" height="128" rx="20" fill="#101010"/><rect x="39" y="41" width="50" height="39" rx="8" fill="none" stroke="#a45c35" stroke-width="5"/><path d="M56 80v10M72 80v10M48 96h32" fill="none" stroke="#a45c35" stroke-width="5" stroke-linecap="round"/><circle cx="53" cy="60" r="3.5" fill="#a45c35"/><circle cx="64" cy="60" r="3.5" fill="#a45c35"/><circle cx="75" cy="60" r="3.5" fill="#a45c35"/></svg>`;
+const fremiumLogo = className => react.createElement("span", { className: className || "fremium-logo", dangerouslySetInnerHTML: { __html: FREMIUM_LOGO_SVG } });
 
 function loadJson(key, fallback) {
   try { const v = LocalStorage.get(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
@@ -1153,7 +1155,7 @@ function FremiumWindow({ isOpen, onClose }) {
       "div",
       { className: "fremium-win-header", onMouseDown: onHeaderDown },
       react.createElement("div", { className: "fremium-win-title" },
-        react.createElement("span", { className: "fremium-logo" }, "◈"),
+        fremiumLogo(),
         react.createElement("span", null, "Fremium"),
         react.createElement("span", { className: "fremium-badge" }, "FLOATING")
       ),
@@ -2691,7 +2693,7 @@ function App() {
         btn = document.createElement("button");
         btn.id = "fremium-topbtn";
         btn.className = "fremium-topbtn";
-        btn.textContent = "◈ Fremium";
+        btn.innerHTML = `${FREMIUM_LOGO_SVG}<span>Fremium</span>`;
         btn.onclick = () => window.FremiumOpen?.();
         header.appendChild(btn);
       }
@@ -2701,7 +2703,10 @@ function App() {
 
   return react.createElement("div", { className: "fremium-root" },
     react.createElement("div", { className: "fremium-hero" },
-      react.createElement("h1", null, "Fremium"),
+      react.createElement("div", { className: "fremium-page-brand" },
+        fremiumLogo("fremium-page-logo"),
+        react.createElement("h1", null, "Fremium")
+      ),
       react.createElement("p", { className: "fremium-sub" }, "Full Fremium window — open it from anywhere and keep it floating over Spotify."),
       react.createElement("div", { className: "fremium-actions" },
         react.createElement("button", { className: "fremium-btn primary large", onClick: () => window.FremiumOpen?.() }, "Open Full Fremium Window"),
