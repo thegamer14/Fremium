@@ -21,6 +21,8 @@ The publishable key is public by design; row-level security restricts profile, e
 
 Synced tables are private and include `fremium_profiles`, `fremium_sync_state`, `fremium_listening_events`, and `fremium_qi_snapshots`. The app sends aggregate QI summaries and current-track explanations rather than the full learned profile.
 
+When the Free Saves folder is connected, **Back up training files** uploads `QI_Profile.json`, `QI_History.json`, and `QI_Stats.json` to the private `fremium-qi` Supabase Storage bucket. The same backup can run automatically after listening sync. Run the updated `supabase/schema.sql` once to create the bucket and storage policies.
+
 ## Features
 
 - Dashboard with current-track, queue, streak, and Last.fm status

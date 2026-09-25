@@ -1241,7 +1241,7 @@ function FremiumAccountPanel() {
       setStatus({ ok: false, text: mode === "signup" ? "Username, email, and password are required" : "Email and password are required" });
       return;
     }
-    const action = mode === "signup" ? runtime.signUp(email, password, displayName) : runtime.signIn(email, password);
+    const action = mode === "signup" ? () => runtime.signUp(email, password, displayName) : () => runtime.signIn(email, password);
     run(action, result => mode === "signup" ? (result?.requiresConfirmation ? "Check your email to confirm the account" : "Account created") : "Signed in");
     setPassword("");
   };
@@ -1252,6 +1252,7 @@ function FremiumAccountPanel() {
   const signedIn = Boolean(account.user);
   const userName = account.user?.user_metadata?.username || account.user?.user_metadata?.display_name || account.user?.email || "Fremium listener";
   const lastSync = account.lastSync ? new Date(account.lastSync).toLocaleString() : "Not synced yet";
+  const lastTrainingBackup = account.lastTrainingBackup ? new Date(account.lastTrainingBackup).toLocaleString() : "Not backed up yet";
   if (!runtime) return react.createElement("div", { className: "fremium-card fremium-account-panel" }, react.createElement("h3", null, "Account sync"), react.createElement("div", { className: "fremium-status err" }, "Account runtime unavailable"));
   return react.createElement("div", { className: "fremium-card fremium-account-panel" },
     react.createElement("h3", null, "Fremium account"),
@@ -1263,13 +1264,19 @@ function FremiumAccountPanel() {
         react.createElement("small", null, `Last sync: ${lastSync}`)
       ),
       account.lastResult ? react.createElement("div", { className: "fremium-hint" }, `Last sync uploaded ${account.lastResult.events || 0} listening events.`) : null,
+      react.createElement("div", { className: "fremium-hint" }, `Training files: ${lastTrainingBackup}`),
       react.createElement("div", { className: "fremium-actions" },
         react.createElement("button", { className: "fremium-btn primary", type: "button", onClick: () => run(() => runtime.sync(), result => `Synced ${result.events} events`), disabled: busy || account.syncing }, account.syncing ? "Syncing…" : "Sync now"),
+        react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => run(() => runtime.syncTrainingFiles(), result => `Backed up ${result.files.length} training files`), disabled: busy || account.trainingSyncing }, account.trainingSyncing ? "Backing up…" : "Back up training files"),
         react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => run(() => runtime.signOut(), "Signed out"), disabled: busy }, "Sign out")
       ),
       react.createElement("label", { className: "fremium-account-auto" },
         react.createElement("input", { type: "checkbox", checked: account.autoSync !== false, onChange: event => runtime.setAutoSync(event.target.checked) }),
         react.createElement("span", null, "Sync automatically after listening events")
+      ),
+      react.createElement("label", { className: "fremium-account-auto" },
+        react.createElement("input", { type: "checkbox", checked: account.autoTrainingBackup !== false, onChange: event => runtime.setAutoTrainingBackup(event.target.checked) }),
+        react.createElement("span", null, "Back up Free Saves training files automatically")
       )
     ) : react.createElement(react.Fragment, null,
       react.createElement("div", { className: "fremium-form" },
@@ -1284,6 +1291,7 @@ function FremiumAccountPanel() {
       )
     ),
     status ? react.createElement("div", { className: `fremium-status ${status.ok ? "ok" : "err"}` }, status.text) : null,
+    account.trainingError ? react.createElement("div", { className: "fremium-status err" }, `Training backup: ${account.trainingError}`) : null,
     react.createElement("p", { className: "fremium-account-note" }, "Your username is your public Fremium profile name. Access and refresh tokens stay on this device, and row-level security keeps synced listening data private to your account.")
   );
 }

@@ -3,6 +3,7 @@
   const DB_STORE = "handles";
   const MAX_EVENTS = 1000;
   const REALTIME_FILE = "QI_Profile.json / QI_History.json / QI_Stats.json";
+  const TRAINING_FILES = ["QI_Profile.json", "QI_History.json", "QI_Stats.json"];
   const listeners = new Set();
   let directoryHandle = null;
   let directoryLoaded = false;
@@ -774,6 +775,23 @@
       if (realtimeQueued) { realtimeQueued = false; scheduleRealtimeSave(); }
     }
   };
+  const getTrainingFiles = async () => {
+    const directories = await getQiDirectories();
+    if (!directories) throw new Error("Choose C:\\Free Saves first");
+    await writeRealtimeFile();
+    const files = {};
+    for (const name of TRAINING_FILES) {
+      try {
+        const fileHandle = await directories.qi.getFileHandle(name);
+        const file = await fileHandle.getFile();
+        files[name] = JSON.parse(await file.text());
+      } catch (error) {
+        if (error?.name !== "NotFoundError") throw error;
+      }
+    }
+    if (!Object.keys(files).length) throw new Error("No QI training files found");
+    return files;
+  };
   const scheduleRealtimeSave = () => {
     getDirectory().then(handle => {
       if (!handle) return;
@@ -1077,6 +1095,8 @@
     downloadSnapshot,
     getDirectoryStatus,
     writeRealtimeFile,
+    getTrainingFiles,
+    trainingFiles: TRAINING_FILES,
     realtimeFile: REALTIME_FILE,
   };
   const readyTimer = setInterval(() => {

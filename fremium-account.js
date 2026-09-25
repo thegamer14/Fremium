@@ -4,14 +4,20 @@
     anonKey: "fremium:account:supabase-anon-key",
     session: "fremium:account:session",
     lastSync: "fremium:account:last-sync",
+    lastTrainingBackup: "fremium:account:last-training-backup",
     autoSync: "fremium:account:auto-sync",
+    autoTrainingBackup: "fremium:account:auto-training-backup",
   };
   const VERSION = "2";
   const defaultConfig = window.FremiumAccountConfig || {};
+  const TRAINING_BUCKET = "fremium-qi";
+  const TRAINING_FILES = ["QI_Profile.json", "QI_History.json", "QI_Stats.json"];
   const LISTENING_EVENTS = new Set(["play", "repeat", "completion", "skip", "abandon", "queue_action"]);
   const listeners = new Set();
   let syncPromise = null;
+  let trainingSyncPromise = null;
   let syncTimer = null;
+  let suppressAutoSync = false;
   let qiUnsubscribe = null;
   let playerListenerInstalled = false;
 
@@ -40,9 +46,13 @@
     user: initialSession?.user || null,
     syncing: false,
     lastSync: read(KEYS.lastSync) || null,
+    lastTrainingBackup: read(KEYS.lastTrainingBackup) || null,
     lastResult: null,
     error: null,
+    trainingError: null,
+    trainingSyncing: false,
     autoSync: read(KEYS.autoSync) !== "0",
+    autoTrainingBackup: read(KEYS.autoTrainingBackup) !== "0",
   };
 
   const notify = () => {
@@ -82,7 +92,8 @@
   const clearSession = () => {
     remove(KEYS.session);
     remove(KEYS.lastSync);
-    setState({ user: null, lastSync: null, lastResult: null, error: null });
+    remove(KEYS.lastTrainingBackup);
+    setState({ user: null, lastSync: null, lastTrainingBackup: null, lastResult: null, error: null, trainingError: null });
   };
   const request = async (path, options = {}) => {
     const config = getConfig();
@@ -313,6 +324,39 @@
       }],
     });
   };
+  const uploadTrainingFile = async (userId, name, value) => {
+    const path = `storage/v1/object/${TRAINING_BUCKET}/${encodeURIComponent(userId)}/${encodeURIComponent(name)}`;
+    await request(path, { method: "POST", headers: { "x-upsert": "true", "Content-Type": "application/json" }, body: value });
+  };
+  const syncTrainingFiles = () => {
+    if (trainingSyncPromise) return trainingSyncPromise;
+    trainingSyncPromise = (async () => {
+      setState({ trainingSyncing: true, trainingError: null });
+      suppressAutoSync = true;
+      try {
+        const session = await getValidSession();
+        if (!session?.user?.id) throw new Error("Sign in to back up training files");
+        const runtime = window.FremiumLiveQI;
+        const files = await runtime?.getTrainingFiles?.();
+        if (!files || typeof files !== "object") throw new Error("Connect the Free Saves folder first");
+        const names = TRAINING_FILES.filter(name => files[name] !== undefined);
+        if (!names.length) throw new Error("No QI training files found");
+        await Promise.all(names.map(name => uploadTrainingFile(session.user.id, name, files[name])));
+        const syncedAt = new Date().toISOString();
+        write(KEYS.lastTrainingBackup, syncedAt);
+        setState({ lastTrainingBackup: syncedAt, trainingError: null });
+        return { files: names, syncedAt };
+      } catch (error) {
+        setState({ trainingError: String(error?.message || error) });
+        throw error;
+      } finally {
+        suppressAutoSync = false;
+        trainingSyncPromise = null;
+        setState({ trainingSyncing: false });
+      }
+    })();
+    return trainingSyncPromise;
+  };
   const sync = () => {
     if (syncPromise) return syncPromise;
     syncPromise = (async () => {
@@ -329,8 +373,17 @@
         await postEvents(rows);
         await postSnapshot(userId, qi, now);
         await postSyncState(userId, now, latestEvent ? new Date(latestEvent).toISOString() : null);
+        let training = null;
+        if (state.autoTrainingBackup) {
+          try {
+            const directoryStatus = await window.FremiumLiveQI?.getDirectoryStatus?.();
+            if (directoryStatus?.connected) training = await syncTrainingFiles();
+          } catch (error) {
+            setState({ trainingError: String(error?.message || error) });
+          }
+        }
         write(KEYS.lastSync, now);
-        const result = { events: rows.length, tracks: qi?.summary?.tracks || 0, snapshotAt: now };
+        const result = { events: rows.length, tracks: qi?.summary?.tracks || 0, snapshotAt: now, trainingFiles: training?.files || [] };
         setState({ lastSync: now, lastResult: result, error: null });
         return result;
       } catch (error) {
@@ -344,7 +397,7 @@
     return syncPromise;
   };
   const scheduleSync = () => {
-    if (!state.autoSync || !state.user) return;
+    if (suppressAutoSync || !state.autoSync || !state.user) return;
     if (syncTimer) clearTimeout(syncTimer);
     syncTimer = setTimeout(() => { syncTimer = null; sync().catch(() => {}); }, 15000);
   };
@@ -354,6 +407,11 @@
     setState({ autoSync: enabled });
     if (enabled) scheduleSync();
     if (!enabled && syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  };
+  const setAutoTrainingBackup = value => {
+    const enabled = Boolean(value);
+    write(KEYS.autoTrainingBackup, enabled ? "1" : "0");
+    setState({ autoTrainingBackup: enabled });
   };
   const subscribe = listener => {
     if (typeof listener !== "function") return () => {};
@@ -381,6 +439,8 @@
     sync,
     subscribe,
     setAutoSync,
+    syncTrainingFiles,
+    setAutoTrainingBackup,
     getCurrentTrack,
     version: VERSION,
   };

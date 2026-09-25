@@ -77,3 +77,13 @@ grant select, insert, update on public.fremium_profiles to authenticated;
 grant select, insert, update on public.fremium_sync_state to authenticated;
 grant select, insert, update on public.fremium_listening_events to authenticated;
 grant select, insert, update on public.fremium_qi_snapshots to authenticated;
+
+insert into storage.buckets (id, name, public)
+values ('fremium-qi', 'fremium-qi', false)
+on conflict (id) do update set public = false;
+
+drop policy if exists fremium_qi_storage_owner on storage.objects;
+create policy fremium_qi_storage_owner on storage.objects
+for all to authenticated
+using (bucket_id = 'fremium-qi' and (storage.foldername(name))[1] = auth.uid()::text)
+with check (bucket_id = 'fremium-qi' and (storage.foldername(name))[1] = auth.uid()::text);
