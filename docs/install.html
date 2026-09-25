@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Install Fremium on Windows, Linux, or macOS with Spicetify.">
+  <title>Fremium Installation Guide</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="account.css">
+  <link rel="stylesheet" href="install.css">
+</head>
+<body>
+  <header class="nav shell">
+    <a class="brand" href="index.html" aria-label="Fremium home"><img class="brand-mark" src="logo.svg" alt=""><span>Fremium</span></a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="index.html#intelligence">How it works</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#qi">Queue Intelligence</a>
+      <a class="active" href="install.html" aria-current="page">Install</a>
+      <a href="account.html">Account</a>
+      <a class="nav-button" href="https://github.com/thegamer14/Fremium" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main class="shell install-page">
+    <section class="install-hero">
+      <div><div class="eyebrow">Installation guide</div><h1>Install Fremium.</h1></div>
+      <p>Bring the full Fremium workspace into Spotify, then open the launcher whenever you want your listening tools nearby.</p>
+    </section>
+
+    <div class="install-layout">
+      <div class="install-main">
+        <article class="install-card" id="windows">
+          <div class="step-label">01 · Windows quick install</div>
+          <h2>Run the PowerShell installer</h2>
+          <p>Make sure Spicetify is installed and available on your PATH. Open PowerShell and run:</p>
+          <pre class="install-code"><code>irm https://raw.githubusercontent.com/thegamer14/Fremium/main/install.ps1 | iex</code></pre>
+          <p class="install-note">The installer downloads the current project, enables the CustomApp, applies Spicetify, and creates the optional <code>C:\Free Saves</code> folder.</p>
+        </article>
+
+        <article class="install-card" id="manual">
+          <div class="step-label">02 · Windows manual install</div>
+          <h2>Install from a local clone</h2>
+          <p>Use this route when you want to inspect or update the project yourself.</p>
+          <pre class="install-code"><code>git clone https://github.com/thegamer14/Fremium.git
+$source = "$env:USERPROFILE\Downloads\Fremium"
+$target = "$env:APPDATA\spicetify\CustomApps\spicify-plugin"
+New-Item -ItemType Directory -Force -Path $target | Out-Null
+Copy-Item -Path "$source\*" -Destination $target -Recurse -Force
+spicetify config custom_apps spicify-plugin
+spicetify apply</code></pre>
+          <p class="install-note">Fully restart Spotify after the apply command finishes.</p>
+        </article>
+
+        <article class="install-card" id="unix">
+          <div class="step-label">03 · Linux or macOS</div>
+          <h2>Run the shell installer</h2>
+          <p>Make sure <code>spicetify</code>, <code>curl</code>, and <code>tar</code> are available, then run:</p>
+          <pre class="install-code"><code>bash &lt;(curl -fsSL https://raw.githubusercontent.com/thegamer14/Fremium/main/install.sh)</code></pre>
+          <p class="install-note">Restart Spotify after the installer reports that Fremium was installed successfully.</p>
+        </article>
+
+        <article class="install-card" id="start">
+          <div class="step-label">04 · First launch</div>
+          <h2>Open your Fremium workspace</h2>
+          <p>After restarting Spotify, select the <strong>◈</strong> launcher to open the persistent window.</p>
+          <pre class="install-code"><code>Select the ◈ launcher in Spotify
+Choose C:\Free Saves if you want local QI files
+Open Account to create or sign in to your Fremium account</code></pre>
+          <p class="install-note">The launcher stays available while you browse playlists, Home, search, and your library.</p>
+        </article>
+      </div>
+
+      <aside class="install-card install-aside">
+        <div class="eyebrow">Before you start</div>
+        <h2>Have these ready</h2>
+        <ul>
+          <li>Spicetify installed and available from your terminal</li>
+          <li>Spotify ready to restart after installation</li>
+          <li>Permission to create the optional Free Saves folder</li>
+        </ul>
+        <a class="button secondary" href="https://github.com/thegamer14/Fremium" target="_blank" rel="noreferrer">View source on GitHub ↗</a>
+        <div class="install-footer"><a class="account-switch" href="index.html">← Back to Fremium</a></div>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="shell"><span>© <span id="year"></span> Fremium · A Spicetify CustomApp</span><a href="index.html">Back to Fremium</a></footer>
+  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+</body>
+</html>

@@ -8,23 +8,6 @@
     "clouded": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/c2/38/87/c23887b2-b0db-6962-61ac-203f801c5fa3/21UMGIM08880.rgb.jpg/600x600bb.jpg",
   };
   const getArtwork = value => artwork[String(value || "").trim().toLowerCase()] || "";
-  const demoData = {
-    summary: { lifetimePlays: 1284, lifetimeSkips: 92, tracks: 86, playlists: 14, sessionPlays: 18, sessionSkips: 2, repeats: 34, completions: 221, abandonments: 8, queueActions: 47 },
-    leaders: [
-      { name: "Let You Down", artist: "NF", plays: 34, skips: 1, completions: 28 },
-      { name: "The Search", artist: "NF", plays: 27, skips: 2, completions: 24 },
-      { name: "Clouded", artist: "NF", plays: 22, skips: 1, completions: 19 },
-      { name: "Turning Page", artist: "Sleeping At Last", plays: 18, skips: 2, completions: 16 },
-    ],
-    currentTrack: { name: "Let You Down", artist: "NF", album: "Perception", image: artwork["let you down"], qiScore: 87, qiConfidence: 91, qiReasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
-    events: [
-      { occurred_at: new Date(Date.now() - 8 * 60000).toISOString(), event_type: "completion", track_name: "Let You Down", artist: "NF" },
-      { occurred_at: new Date(Date.now() - 19 * 60000).toISOString(), event_type: "play", track_name: "The Search", artist: "NF" },
-      { occurred_at: new Date(Date.now() - 31 * 60000).toISOString(), event_type: "repeat", track_name: "Clouded", artist: "NF" },
-      { occurred_at: new Date(Date.now() - 48 * 60000).toISOString(), event_type: "skip", track_name: "A Song", artist: "Unknown artist" },
-    ],
-  };
-
   const getStored = (storage, key, fallback = null) => {
     try {
       const value = storage.getItem(key);
@@ -164,14 +147,13 @@
     const image = event.image || getArtwork(event.track_name);
     return `<div class="account-list-row"><div class="account-list-main">${artworkImage(image, `${event.track_name || "Track"} album cover`, "account-list-art")}<div class="account-track-copy"><strong>${escapeHtml(event.track_name || "Queue activity")}</strong><span>${escapeHtml(event.artist || "Unknown artist")} · ${escapeHtml(eventLabel(event.event_type))}</span></div></div><b>${escapeHtml(formatDate(event.occurred_at))}</b></div>`;
   };
-  const renderDashboard = (data, demo = false) => {
+  const renderDashboard = data => {
     const source = data || {};
     const summary = source.summary || deriveSummary(source.events);
     const leaders = Array.isArray(source.leaders) ? source.leaders : [];
     const current = source.currentTrack || source.current_track || null;
     const events = Array.isArray(source.events) ? source.events : [];
-    document.getElementById("account-demo-banner").hidden = !demo;
-    document.getElementById("account-dashboard-title").textContent = demo ? "Demo listening snapshot" : current?.name ? `Last synced: ${current.name}` : "Your listening snapshot";
+    document.getElementById("account-dashboard-title").textContent = current?.name ? `Last synced: ${current.name}` : "Sign in to load your stats";
     document.getElementById("account-stats").innerHTML = [
       statCard("Lifetime plays", formatNumber(summary.lifetimePlays), "Observed by Fremium"),
       statCard("Tracks learned", formatNumber(summary.tracks), "Unique listening signals"),
@@ -310,7 +292,6 @@
       } catch (error) { message(error.message, "error"); }
       finally { button.disabled = false; }
     });
-    document.getElementById("account-demo").addEventListener("click", () => { renderDashboard(demoData, true); message("Demo data is local to this page. Connect an account to load your own stats.", "ok"); });
     document.getElementById("account-refresh").addEventListener("click", async () => {
       try { const session = await getValidSession(); if (!session) throw new Error("Sign in again to refresh."); await loadDashboard(session); message("Dashboard refreshed.", "ok"); } catch (error) { message(error.message, "error"); }
     });

@@ -2,9 +2,9 @@
 
 Fremium is a Spicetify CustomApp for music discovery, listening insights, and playlist tools. Its complete React window stays open while you browse Spotify and can be moved and resized anywhere.
 
-## Demo website
+## Website
 
-Try the self-contained GitHub Pages demo: [fremium demo](https://thegamer14.github.io/Fremium/)
+Explore the Fremium website: [Fremium](https://thegamer14.github.io/Fremium/)
 
 Open the private dashboard separately: [Fremium account](https://thegamer14.github.io/Fremium/account.html)
 
