@@ -56,6 +56,17 @@
 .fremium-qi-leaders,.fremium-qi-events{ margin-top:14px; }
 .fremium-qi-event{ display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:.8rem; }
 .fremium-qi-event span{ color:var(--spice-subtext); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fremium-account-settings{ margin:12px 0; border:1px solid rgba(255,255,255,.12); border-radius:10px; background:rgba(255,255,255,.04); }
+.fremium-account-settings summary{ padding:10px 12px; color:var(--spice-button-active,#1db954); cursor:pointer; font-size:.8rem; font-weight:700; }
+.fremium-account-settings[open] summary{ border-bottom:1px solid rgba(255,255,255,.08); }
+.fremium-account-settings .fremium-form{ padding:10px 12px; }
+.fremium-account-field{ display:flex; flex-direction:column; gap:4px; color:var(--spice-subtext); font-size:.78rem; font-weight:600; }
+.fremium-account-field input{ width:100%; }
+.fremium-account-user{ display:flex; flex-direction:column; gap:3px; margin:12px 0; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.06); }
+.fremium-account-user strong{ font-size:.9rem; }
+.fremium-account-user span,.fremium-account-user small{ color:var(--spice-subtext); font-size:.75rem; overflow-wrap:anywhere; }
+.fremium-account-auto{ display:flex; align-items:center; gap:8px; margin-top:12px; color:var(--spice-subtext); font-size:.78rem; }
+.fremium-account-note{ margin:12px 0 0; color:var(--spice-subtext); font-size:.75rem; line-height:1.4; }
 
 /* Top bar button */
 .fremium-topbtn{ margin-left:12px; background: var(--spice-button-active, #1db954); color:#000; border:none; padding:6px 12px; border-radius:16px; font-weight:700; cursor:pointer; font-size:0.8rem; }

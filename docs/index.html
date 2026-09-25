@@ -104,13 +104,73 @@
     .install p { color: var(--muted); }
     .code { margin-top: 20px; padding: 17px; overflow-x: auto; border: 1px solid var(--line); border-radius: 13px; color: var(--green); background: #0b0b09; font: .82rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
     .install-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .account-layout { display: grid; grid-template-columns: .85fr 1.15fr; gap: 18px; }
+    .account-card { padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); }
+    .account-card h3 { margin: 0 0 8px; font-size: 1.25rem; letter-spacing: -.04em; }
+    .account-card > p { margin: 0 0 16px; color: var(--muted); font-size: .86rem; }
+    .account-settings { margin: 0 0 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
+    .account-settings summary { padding: 11px 13px; color: var(--orange-2); cursor: pointer; font-size: .8rem; font-weight: 750; }
+    .account-settings[open] summary { border-bottom: 1px solid var(--line); }
+    .account-form { display: flex; flex-direction: column; gap: 10px; }
+    .account-settings .account-form { padding: 13px; }
+    .account-field { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: .76rem; font-weight: 700; }
+    .account-field input { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; outline: none; color: var(--text); background: rgba(0,0,0,.28); font: inherit; }
+    .account-field input:focus { border-color: rgba(255,155,95,.7); box-shadow: 0 0 0 3px rgba(255,107,44,.12); }
+    .account-form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }
+    .account-switch { margin: 12px 0; color: var(--muted); font-size: .8rem; }
+    .account-switch button { padding: 0; border: 0; color: var(--orange-2); background: transparent; cursor: pointer; font: inherit; }
+    .account-demo { width: 100%; margin-top: 4px; }
+    .account-note { margin: 14px 0 0 !important; color: #776b63 !important; font-size: .74rem !important; }
+    .account-message { margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: .78rem; }
+    .account-message.ok { border-color: rgba(185,231,105,.3); color: var(--green); background: rgba(185,231,105,.08); }
+    .account-message.error { border-color: rgba(255,107,44,.35); color: var(--orange-2); background: rgba(255,107,44,.08); }
+    .account-dashboard { min-width: 0; }
+    .account-dashboard-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+    .account-dashboard-head h3 { margin: 5px 0 0; }
+    .account-live { padding: 5px 8px; border: 1px solid rgba(185,231,105,.25); border-radius: 999px; color: var(--green); font-size: .65rem; font-weight: 850; letter-spacing: .1em; }
+    .account-user { margin: 12px 0; padding: 9px 11px; border-radius: 9px; color: var(--muted); background: rgba(255,255,255,.05); font-size: .78rem; overflow-wrap: anywhere; }
+    .account-dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .account-demo-banner { margin-bottom: 12px; padding: 7px 10px; border: 1px solid rgba(255,155,95,.25); border-radius: 8px; color: var(--orange-2); background: rgba(255,107,44,.08); font-size: .75rem; }
+    .account-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 18px; }
+    .account-stat { min-width: 0; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); }
+    .account-stat span, .account-stat small { display: block; color: var(--muted); font-size: .67rem; }
+    .account-stat strong { display: block; margin: 3px 0 2px; color: var(--text); font-size: 1.2rem; letter-spacing: -.05em; overflow: hidden; text-overflow: ellipsis; }
+    .account-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+    .account-section-label { margin-bottom: 8px; color: var(--orange-2); text-transform: uppercase; letter-spacing: .13em; font-size: .66rem; font-weight: 850; }
+    .account-current { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); }
+    .account-current-track { min-width: 0; }
+    .account-current-track strong, .account-current-track span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account-current-track strong { font-size: .85rem; }
+    .account-current-track span { margin-top: 2px; color: var(--muted); font-size: .7rem; }
+    .account-current-qi { flex: 0 0 auto; text-align: right; }
+    .account-current-qi strong, .account-current-qi span { display: block; }
+    .account-current-qi strong { color: var(--green); font-size: 1.3rem; }
+    .account-current-qi span { color: var(--muted); font-size: .65rem; }
+    .account-list { display: grid; gap: 6px; }
+    .account-list-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .account-list-row > div { min-width: 0; }
+    .account-list-row strong, .account-list-row span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account-list-row strong { font-size: .78rem; }
+    .account-list-row span, .account-list-row b { color: var(--muted); font-size: .68rem; font-weight: 600; }
+    .account-list-row b { flex: 0 0 auto; text-align: right; }
+    .account-empty { padding: 11px; border-radius: 9px; color: var(--muted); background: rgba(255,255,255,.04); font-size: .76rem; }
+    .account-qi { margin-top: 20px; padding-top: 17px; border-top: 1px solid var(--line); }
+    .account-qi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .account-qi-grid > div { padding: 10px; border-radius: 9px; background: rgba(185,231,105,.07); }
+    .account-qi-grid strong, .account-qi-grid span { display: block; }
+    .account-qi-grid strong { color: var(--green); font-size: 1.15rem; }
+    .account-qi-grid span { margin-top: 2px; color: var(--muted); font-size: .66rem; }
+    .account-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .account-reasons span { padding: 5px 8px; border: 1px solid rgba(185,231,105,.2); border-radius: 999px; color: var(--green); background: rgba(185,231,105,.07); font-size: .68rem; }
+    [hidden] { display: none !important; }
     footer { display: flex; justify-content: space-between; gap: 20px; padding: 80px 0 35px; color: #776b63; font-size: .76rem; }
     @media (max-width: 820px) {
       .nav-links a:not(.nav-button) { display: none; }
-      .hero, .demo, .qi-layout, .install { grid-template-columns: 1fr; }
+      .hero, .demo, .qi-layout, .install, .account-layout, .account-content { grid-template-columns: 1fr; }
       .hero { gap: 42px; padding-top: 60px; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
       .grid-3 { grid-template-columns: 1fr; }
+      .account-stats { grid-template-columns: repeat(2, 1fr); }
       .section { padding-top: 78px; }
       .section-heading { display: block; }
       .section-heading p { margin-top: 12px; }
@@ -132,6 +192,7 @@
       <a href="#demo">Live demo</a>
       <a href="#features">Features</a>
       <a href="#qi">Queue Intelligence</a>
+      <a href="#account">Account</a>
       <a class="nav-button" href="https://github.com/thegamer14/Fremium" target="_blank" rel="noreferrer">GitHub ↗</a>
     </nav>
   </header>
@@ -191,6 +252,55 @@
       </div>
     </section>
 
+    <section class="section shell" id="account">
+      <div class="section-heading">
+        <div><div class="eyebrow">Private account sync</div><h2>Your listening, in one place.</h2></div>
+        <p>Sign in to see the songs, signals, and Queue Intelligence summary synced from your Fremium app. The dashboard is private by default.</p>
+      </div>
+      <div class="account-layout">
+        <div class="account-card">
+          <div id="account-signed-out">
+            <h3>Connect your Fremium account</h3>
+            <p>Use the same Supabase project in the Fremium app and here. The project URL and public anon key are stored only in this browser.</p>
+            <details class="account-settings" open>
+              <summary>Connection settings</summary>
+              <div class="account-form">
+                <label class="account-field">Supabase project URL<input id="account-url" type="url" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
+                <label class="account-field">Public anon key<input id="account-key" type="password" placeholder="Publishable anon key" autocomplete="off"></label>
+                <div class="account-form-actions"><button class="button secondary small" id="account-save-config" type="button">Save connection</button></div>
+              </div>
+            </details>
+            <form class="account-form" id="account-auth-form">
+              <label class="account-field" id="account-display-field" hidden>Display name<input id="account-display-name" type="text" placeholder="How should Fremium greet you?" autocomplete="name"></label>
+              <label class="account-field">Email<input id="account-email" type="email" placeholder="you@example.com" autocomplete="email" required></label>
+              <label class="account-field">Password<input id="account-password" type="password" placeholder="Your account password" autocomplete="current-password" required></label>
+              <div class="account-form-actions"><button class="button primary" id="account-submit" type="submit">Sign in</button></div>
+            </form>
+            <div class="account-switch"><button id="account-toggle" type="button">Need an account? Create one</button></div>
+            <button class="button secondary account-demo" id="account-demo" type="button">Preview demo dashboard</button>
+            <p class="account-note">No Spotify password is requested here. Fremium only syncs the listening and QI data generated by your app.</p>
+          </div>
+          <div id="account-signed-in" hidden>
+            <h3>Your private dashboard</h3>
+            <p>Refresh whenever you want the latest data from the Fremium app.</p>
+            <div class="account-user" id="account-user"></div>
+            <div class="account-dashboard-actions"><button class="button primary small" id="account-refresh" type="button">Refresh stats</button><button class="button secondary small" id="account-signout" type="button">Sign out</button></div>
+          </div>
+          <div class="account-message" id="account-message" role="status" aria-live="polite" hidden></div>
+        </div>
+        <div class="account-card account-dashboard">
+          <div class="account-demo-banner" id="account-demo-banner" hidden>Demo data · not connected to an account</div>
+          <div class="account-dashboard-head"><div><div class="eyebrow">Personal dashboard</div><h3 id="account-dashboard-title">Connect to see your stats</h3></div><span class="account-live">PRIVATE</span></div>
+          <div class="account-stats" id="account-stats"></div>
+          <div class="account-content">
+            <div><div class="account-section-label">Current song</div><div class="account-current" id="account-current"></div><div class="account-section-label" style="margin-top:18px">Top tracks</div><div class="account-list" id="account-top"></div></div>
+            <div><div class="account-section-label">Recent activity</div><div class="account-list" id="account-recent"></div></div>
+          </div>
+          <div class="account-qi" id="account-qi"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="section shell" id="features">
       <div class="section-heading">
         <div><div class="eyebrow">A better Spotify sidecar</div><h2>Made for the way you listen.</h2></div>
@@ -244,6 +354,7 @@
 
   <footer class="shell"><span>© <span id="year"></span> Fremium · A Spicetify CustomApp</span><span>Built for curious listeners.</span></footer>
 
+  <script src="account.js"></script>
   <script>
     const scenes = {
       night: { title: "Let You Down", artist: "NF · late-night focus", cover: "QI", score: 87, confidence: 91, context: "lateNight · weekday", positive: "Replay +21 · Completion +18", negative: "Skip −4", reasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },

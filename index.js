@@ -1125,6 +1125,7 @@ function FremiumWindow({ isOpen, onClose }) {
 
   const tabList = [
     { id: "dashboard", label: "Dashboard" },
+    { id: "account", label: "Account" },
     { id: "songqi", label: "Song QI" },
     { id: "lastfm", label: "Last.fm" },
     { id: "streaks", label: "Streaks" },
@@ -1178,6 +1179,7 @@ function FremiumWindow({ isOpen, onClose }) {
       "div",
       { className: "fremium-win-body" },
       tab === "dashboard" ? react.createElement(DashboardTab, { onGoLfm: () => setTab("lastfm") }) :
+      tab === "account" ? react.createElement(AccountTab, null) :
       tab === "songqi" ? react.createElement(SongQiTab, null) :
       tab === "lastfm" ? react.createElement(LastFmTab, null) :
       tab === "streaks" ? react.createElement(StreaksTab, { onGoLfm: () => setTab("lastfm") }) :
@@ -1192,6 +1194,102 @@ function FremiumWindow({ isOpen, onClose }) {
     ) : null,
     // resize handle
     !minimized ? react.createElement("div", { className: "fremium-resize", onMouseDown: onResizeDown, title: "Drag to resize" }) : null
+  );
+}
+
+function AccountTab() {
+  const runtime = window.FremiumAccount;
+  const initial = runtime?.get?.() || {};
+  const config = runtime?.getConfig?.() || {};
+  const [account, setAccount] = useState(() => initial);
+  const [url, setUrl] = useState(config.supabaseUrl || "");
+  const [anonKey, setAnonKey] = useState(config.supabaseAnonKey || "");
+  const [email, setEmail] = useState(initial.user?.email || "");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState(initial.user?.user_metadata?.display_name || "");
+  const [mode, setMode] = useState("signin");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = runtime?.subscribe?.(value => {
+      setAccount(value || {});
+      if (value?.user?.email) setEmail(value.user.email);
+    });
+    return unsubscribe;
+  }, [runtime]);
+
+  const run = async (action, success) => {
+    if (!runtime) return null;
+    setBusy(true);
+    setStatus(null);
+    try {
+      const result = await action();
+      setAccount(runtime.get?.() || {});
+      if (success) setStatus({ ok: true, text: typeof success === "function" ? success(result) : success });
+      return result;
+    } catch (error) {
+      setStatus({ ok: false, text: String(error?.message || error) });
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveConfig = () => run(() => runtime.configure(url, anonKey), "Supabase connection saved locally");
+  const submitAuth = event => {
+    event.preventDefault();
+    const action = mode === "signup" ? runtime.signUp(email, password, displayName) : runtime.signIn(email, password);
+    run(action, result => mode === "signup" ? (result?.requiresConfirmation ? "Check your email to confirm the account" : "Account created") : "Signed in");
+    setPassword("");
+  };
+  const field = (label, type, value, setter, extra = {}) => react.createElement("label", { className: "fremium-account-field" },
+    label,
+    react.createElement("input", Object.assign({ className: "fremium-input", type, value, onChange: event => setter(event.target.value) }, extra))
+  );
+  const configured = account.configured || Boolean(url && anonKey);
+  const signedIn = Boolean(account.user);
+  const userName = account.user?.user_metadata?.display_name || account.user?.email || "Fremium listener";
+  const lastSync = account.lastSync ? new Date(account.lastSync).toLocaleString() : "Not synced yet";
+  if (!runtime) return react.createElement("div", { className: "fremium-tab" }, react.createElement("h3", null, "Account sync"), react.createElement("div", { className: "fremium-status err" }, "Account runtime unavailable"));
+  return react.createElement("div", { className: "fremium-tab" },
+    react.createElement("h3", null, "Fremium account"),
+    react.createElement("p", { className: "fremium-hint" }, "Connect a private Supabase account to sync listening history and Queue Intelligence summaries to the Fremium website."),
+    react.createElement("details", { className: "fremium-account-settings", open: !configured },
+      react.createElement("summary", null, "Supabase connection"),
+      react.createElement("div", { className: "fremium-form" },
+        field("Project URL", "url", url, setUrl, { placeholder: "https://your-project.supabase.co" }),
+        field("Public anon key", "password", anonKey, setAnonKey, { placeholder: "Publishable anon key", autoComplete: "off" }),
+        react.createElement("div", { className: "fremium-actions" }, react.createElement("button", { className: "fremium-btn", type: "button", onClick: saveConfig, disabled: busy }, "Save connection"))
+      )
+    ),
+    signedIn ? react.createElement(react.Fragment, null,
+      react.createElement("div", { className: "fremium-account-user" },
+        react.createElement("strong", null, userName),
+        react.createElement("span", null, account.user?.email || ""),
+        react.createElement("small", null, `Last sync: ${lastSync}`)
+      ),
+      account.lastResult ? react.createElement("div", { className: "fremium-hint" }, `Last sync uploaded ${account.lastResult.events || 0} listening events.`) : null,
+      react.createElement("div", { className: "fremium-actions" },
+        react.createElement("button", { className: "fremium-btn primary", type: "button", onClick: () => run(() => runtime.sync(), result => `Synced ${result.events} events`), disabled: busy || account.syncing }, account.syncing ? "Syncing…" : "Sync now"),
+        react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => run(() => runtime.signOut(), "Signed out"), disabled: busy }, "Sign out")
+      ),
+      react.createElement("label", { className: "fremium-account-auto" },
+        react.createElement("input", { type: "checkbox", checked: account.autoSync !== false, onChange: event => runtime.setAutoSync(event.target.checked) }),
+        react.createElement("span", null, "Sync automatically after listening events")
+      )
+    ) : react.createElement(react.Fragment, null,
+      react.createElement("div", { className: "fremium-form" },
+        field("Email", "email", email, setEmail, { placeholder: "you@example.com", autoComplete: "email" }),
+        field("Password", "password", password, setPassword, { placeholder: "Your password", autoComplete: "current-password" }),
+        mode === "signup" ? field("Display name", "text", displayName, setDisplayName, { placeholder: "Optional", autoComplete: "name" }) : null,
+        react.createElement("div", { className: "fremium-actions" },
+          react.createElement("button", { className: "fremium-btn primary", type: "button", onClick: submitAuth, disabled: busy || !configured }, mode === "signup" ? "Create account" : "Sign in"),
+          react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => setMode(value => value === "signin" ? "signup" : "signin"), disabled: busy }, mode === "signup" ? "Use sign in" : "Create account")
+        )
+      )
+    ),
+    status ? react.createElement("div", { className: `fremium-status ${status.ok ? "ok" : "err"}` }, status.text) : null,
+    react.createElement("p", { className: "fremium-account-note" }, "Only the public anon key is needed. Access and refresh tokens stay on this device, and row-level security keeps synced data private to your account.")
   );
 }
 
