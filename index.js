@@ -2041,13 +2041,16 @@ function QueueTab({ onGoLfm }) {
           react.createElement("div", { className: "fremium-row-title small" }, track.name),
           react.createElement("div", { className: "fremium-row-sub" }, track.artist?.name || "")
         ),
-        react.createElement("button", { className: "fremium-btn small", onClick: async () => {
-          const item = await spotifySearch(`${track.name} ${track.artist.name}`, "track");
-          if (item?.uri) { await addTracksToQueue([item.uri]); refreshQueue(); }
-        } }, "Queue")
+         react.createElement(react.Fragment, null,
+           react.createElement("button", { className: "fremium-btn small", onClick: async () => {
+             const item = await spotifySearch(`${track.name} ${track.artist.name}`, "track");
+             if (item?.uri) { await addTracksToQueue([item.uri]); refreshQueue(); }
+           } }, "Queue"),
+           react.createElement("button", { className: "fremium-btn small", onClick:()=>{ const item = window.FremiumLiveQI?.explain?.(track.uri); showNotification(item?.reasons?.join(" • ") || "No QI explanation yet"); } }, "Why?")
+         )
       )))
     ) : null,
-    react.createElement("p", { className:"fremium-hint" }, "QI learns live in memory from play, skip, completion, repeat, context, and queue events. Save timestamped JSON snapshots to C:\\Free Saves or import JSON backups from the base Fremium page.")
+    react.createElement("p", { className:"fremium-hint" }, "QI learns from weighted skips, skip timing, abandonment, replay/completion, early/late positions, playlist context, sessions, and recent-versus-lifetime behavior. Use the base QI panel for Why?, Memory, backups, and conditional live saves.")
   );
 }
 
@@ -2240,7 +2243,10 @@ function AITab({ onGoLfm }) {
           react.createElement("div", {className:"fremium-row-title small"}, t.name),
           react.createElement("div", {className:"fremium-row-sub"}, `${t.artist} • ${t.found?"found":"not on Spotify"}`)
         ),
-        t.uri ? react.createElement("button", {className:"fremium-btn small", onClick:()=>Player.playUri(t.uri)}, "Play") : react.createElement("span", {className:"fremium-pill muted"}, "—")
+         t.uri ? react.createElement(react.Fragment, null,
+           react.createElement("button", {className:"fremium-btn small", onClick:()=>Player.playUri(t.uri)}, "Play"),
+           react.createElement("button", {className:"fremium-btn small", onClick:()=>{ const info = window.FremiumLiveQI?.explain?.(t.uri); showNotification(info?.reasons?.join(" • ") || "No QI explanation yet"); }}, "Why?")
+         ) : react.createElement("span", {className:"fremium-pill muted"}, "—")
       )),
       react.createElement("div", {className:"fremium-row", style:{marginTop:10}},
         react.createElement("input", {className:"fremium-input", style:{flex:1}, value:playlistName, onChange:e=>setPlaylistName(e.target.value), placeholder:"Playlist name"}),
@@ -2409,6 +2415,7 @@ function FremiumQiPanel() {
   const [folderConnected, setFolderConnected] = useState(false);
   const [replaceOnImport, setReplaceOnImport] = useState(false);
   const fileInput = useRef(null);
+  const profileInput = useRef(null);
 
   useEffect(() => {
     if (!runtime) {
@@ -2447,6 +2454,18 @@ function FremiumQiPanel() {
       setStatus(String(error?.message || error));
     }
   };
+  const importProfileFiles = async event => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length || !runtime) return;
+    try {
+      for (const file of files) runtime.importProfile?.(await file.text(), { replace: false });
+      setData(runtime.get?.() || null);
+      setStatus(`Merged ${files.length} QI profile${files.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      setStatus(String(error?.message || error));
+    }
+  };
 
   const summary = data?.summary || {};
   const leaders = data?.leaders || [];
@@ -2456,7 +2475,7 @@ function FremiumQiPanel() {
     react.createElement("div", { className: "fremium-qi-header" },
       react.createElement("div", null,
         react.createElement("h3", null, "Queue Intelligence"),
-        react.createElement("p", { className: "fremium-hint" }, "Live learning stays in memory. Connect C:\\Free Saves to continuously overwrite fremium-qi-live.json; without a folder, nothing is written in real time.")
+        react.createElement("p", { className: "fremium-hint" }, "Live learning stays in memory. Connect C:\\Free Saves to continuously update QI_Profile.json, QI_History.json, and QI_Stats.json under Fremium\\QI; without a folder, nothing is written in real time.")
       ),
       react.createElement("span", { className: "fremium-pill" }, "LIVE")
     ),
@@ -2468,15 +2487,21 @@ function FremiumQiPanel() {
         react.createElement(StatCard, { label: "Queue actions", value: String(summary.queueActions || 0), sub: "Observed changes" }),
         react.createElement(StatCard, { label: "Abandoned", value: String(summary.abandonments || 0), sub: `${summary.immediateSkips || 0} immediate skips` })
       ),
-      react.createElement("div", { className: "fremium-qi-path" }, folderConnected ? `Connected: C:\\Free Saves • Live autosave: ${realtime.file || "fremium-qi-live.json"}` : "Folder not connected: C:\\Free Saves • Memory only"),
+      react.createElement("div", { className: "fremium-qi-path" }, folderConnected ? `Connected: C:\\Free Saves\\Fremium\\QI • Live autosave: ${realtime.file || "QI files"}` : "Folder not connected: C:\\Free Saves\\Fremium\\QI • Memory only"),
       react.createElement("div", { className: "fremium-actions" },
         react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.chooseDirectory?.(), "Free Saves folder connected") }, "Choose C:\\Free Saves"),
         react.createElement("button", { className: "fremium-btn primary", onClick: () => run(() => runtime.saveSnapshot?.(), fileName => `Saved ${fileName}`), disabled: !folderConnected }, "Save Snapshot"),
         react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.downloadSnapshot?.(), fileName => `Downloaded ${fileName}`) }, "Download JSON"),
-        react.createElement("button", { className: "fremium-btn", onClick: () => fileInput.current?.click() }, "Import JSON"),
-        react.createElement("input", { ref: fileInput, type: "file", accept: ".json,application/json", multiple: true, onChange: importFiles, style: { display: "none" } }),
-        react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.snapshot?.(), "Queue snapshot recorded") }, "Snapshot Queue"),
-        react.createElement("button", { className: "fremium-btn danger", onClick: () => { if (confirm("Clear the live QI session?")) run(() => runtime.clear?.(), "Live QI session cleared"); } }, "Clear Live QI")
+         react.createElement("button", { className: "fremium-btn", onClick: () => fileInput.current?.click() }, "Import JSON"),
+         react.createElement("button", { className: "fremium-btn", onClick: () => profileInput.current?.click() }, "Merge Profile"),
+         react.createElement("input", { ref: fileInput, type: "file", accept: ".json,application/json", multiple: true, onChange: importFiles, style: { display: "none" } }),
+         react.createElement("input", { ref: profileInput, type: "file", accept: ".json,application/json", multiple: true, onChange: importProfileFiles, style: { display: "none" } }),
+         react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.snapshot?.(), "Queue snapshot recorded") }, "Snapshot Queue"),
+          react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.debug?.(Player.data?.item?.uri), result => result ? `QI ${result.score} • ${result.confidence}% confidence • ${result.reasons.join(" • ")}` : "No current track") }, "Why/Debug?"),
+         react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.memory?.(), result => result?.insights?.join(" • ") || "No learned insights yet") }, "QI Memory"),
+         react.createElement("button", { className: "fremium-btn", onClick: () => run(async () => { const names = await runtime.listBackups?.(); if (!names?.length) throw new Error("No backups found"); return runtime.restoreBackup?.(names[0]); }, "Restored latest QI backup") }, "Restore Latest Backup"),
+          react.createElement("button", { className: "fremium-btn danger", onClick: () => { if (confirm("Clear the live QI session?")) run(() => runtime.clear?.(), "Live QI session cleared"); } }, "Clear Live QI"),
+          react.createElement("button", { className: "fremium-btn danger", onClick: () => { if (confirm("Reset all learned QI preferences? This cannot be undone.")) run(() => runtime.resetLearned?.(), "Learned QI reset"); } }, "Reset Learned QI")
       ),
       react.createElement("label", { className: "fremium-qi-import-option" },
         react.createElement("input", { type: "checkbox", checked: replaceOnImport, onChange: event => setReplaceOnImport(event.target.checked) }),

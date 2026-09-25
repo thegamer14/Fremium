@@ -106,17 +106,34 @@ The base Fremium page includes a live Queue Intelligence panel. It keeps the cur
 - Separate current-session, recent, and lifetime preference scores
 - Recent behavior is weighted more heavily while lifetime preferences remain available
 - Queue ranking and similar-track suggestions use the combined learning signals
+- Playlist, artist, genre, time-of-day/weekday context, and track-transition relationships
+- Confidence-aware “Why?” explanations, QI Memory, and debug breakdowns
 
-Use **Choose C:\\Free Saves** once to grant Spotify folder access. When a folder is connected, Fremium continuously overwrites `fremium-qi-live.json` in that folder after learning events. When no folder is connected, real-time file saving is disabled and QI remains memory-only.
+Use **Choose C:\\Free Saves** once to grant Spotify folder access. QI creates this structure:
+
+```text
+C:\Free Saves\Fremium\QI\
+  QI_Profile.json
+  QI_History.json
+  QI_Stats.json
+  Backups\
+    QI_2026-09-24_2204.json
+```
+
+When a folder is connected, QI continuously updates the three root JSON files after learning events. When no folder is connected, real-time file saving is disabled and QI remains memory-only. Manual backups rotate to the ten newest files.
 
 Manual controls remain available:
 
-- **Save Snapshot** — writes a timestamped JSON file to `C:\Free Saves`
+- **Save Snapshot** — writes a validated full backup under `Fremium\\QI\\Backups`
+- **Restore Latest Backup** — restores the newest valid backup
 - **Download JSON** — downloads a copy through Spotify/browser downloads
-- **Import JSON** — imports one or more saved JSON files; enable replace mode to restore one snapshot instead of merging
+- **Import JSON** — imports one or more saved JSON files; replace mode restores a snapshot, while normal mode merges data
+- **Merge Profile** — merges learned profile data without replacing the live session
+- **Why this track?** — shows the signals behind a QI score
+- **QI Memory** — summarizes learned listening behavior
 - **Snapshot Queue** — records the current queue as a live event
 
-Live QI resets when Spotify restarts unless a live file or snapshot is imported.
+Live QI resets when Spotify restarts unless a profile, history, or backup file is imported.
 
 ## Project Files
 
@@ -128,7 +145,7 @@ Live QI resets when Spotify restarts unless a live file or snapshot is imported.
 - `queue-training.js` — legacy local Queue Intelligence data model
 - `queue-training-panel.js` — legacy Queue Intelligence data panel
 
-Queue Intelligence is live in memory and is not written to LocalStorage. With a selected Free Saves folder, the extension continuously overwrites `fremium-qi-live.json`; without one, it performs no real-time file writes. Use the base-page panel for manual snapshots, downloads, and imports. Spotify must grant folder access the first time you choose the folder.
+Queue Intelligence separates live events/session state from learned profile data. With a selected Free Saves folder, the extension continuously updates `QI_Profile.json`, `QI_History.json`, and `QI_Stats.json`; without one, it performs no real-time file writes. Manual backups, restore, merge/import, validation, and rotation are available from the base-page panel.
 
 ## Development
 
