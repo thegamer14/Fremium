@@ -10,7 +10,7 @@
       { name: "Clouded", artist: "NF", plays: 22, skips: 1, completions: 19 },
       { name: "Turning Page", artist: "Sleeping At Last", plays: 18, skips: 2, completions: 16 },
     ],
-    currentTrack: { name: "Let You Down", artist: "NF", album: "Mansion", qiScore: 87, qiConfidence: 91, qiReasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
+    currentTrack: { name: "Let You Down", artist: "NF", album: "Perception", qiScore: 87, qiConfidence: 91, qiReasons: ["Replayed 8 times", "Usually finished", "Familiar in this playlist"] },
     events: [
       { occurred_at: new Date(Date.now() - 8 * 60000).toISOString(), event_type: "completion", track_name: "Let You Down", artist: "NF" },
       { occurred_at: new Date(Date.now() - 19 * 60000).toISOString(), event_type: "play", track_name: "The Search", artist: "NF" },
