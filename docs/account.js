@@ -90,6 +90,40 @@
       return null;
     }
   };
+  const clearAuthUrl = () => {
+    try { window.history.replaceState({}, document.title, window.location.pathname); } catch {}
+  };
+  const verifyAuthCallback = async () => {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const callbackError = query.get("error_description") || query.get("error") || hash.get("error_description") || hash.get("error");
+    if (callbackError) {
+      clearAuthUrl();
+      throw new Error(callbackError.replace(/\+/g, " "));
+    }
+    const tokenHash = query.get("token_hash");
+    if (tokenHash) {
+      const result = await request("auth/v1/verify", { method: "POST", auth: false, body: { token_hash: tokenHash, type: query.get("type") || "email" } });
+      clearAuthUrl();
+      return storeSession(result);
+    }
+    if (hash.get("access_token")) {
+      const rawExpiry = Number(hash.get("expires_at")) || 0;
+      const expiresAt = rawExpiry > 100000000000 ? rawExpiry : rawExpiry ? rawExpiry * 1000 : Date.now() + (Number(hash.get("expires_in")) || 3600) * 1000;
+      let session = storeSession({ access_token: hash.get("access_token"), refresh_token: hash.get("refresh_token"), token_type: hash.get("token_type"), expires_at: expiresAt, expires_in: Number(hash.get("expires_in")) || 3600 });
+      try {
+        const user = await request("auth/v1/user");
+        session = storeSession({ ...session, user });
+      } catch {}
+      clearAuthUrl();
+      return session;
+    }
+    if (query.get("code")) {
+      clearAuthUrl();
+      throw new Error("This confirmation link uses an unsupported code flow. Request a new verification email after setting the Supabase Site URL.");
+    }
+    return null;
+  };
   const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
   const formatNumber = value => new Intl.NumberFormat().format(Number(value || 0));
   const formatDate = value => {
@@ -183,6 +217,26 @@
     renderDashboard(null);
     message("You are signed out.", "ok");
   };
+  const initializeAuth = async () => {
+    try {
+      const callbackSession = await verifyAuthCallback();
+      if (callbackSession) {
+        showSignedIn(callbackSession);
+        await loadDashboard(callbackSession);
+        message("Email verified. Your Fremium account is ready.", "ok");
+        return;
+      }
+    } catch (error) {
+      message(error.message, "error");
+    }
+    const session = await getValidSession();
+    if (session) {
+      showSignedIn(session);
+      loadDashboard(session).catch(error => message(error.message, "error"));
+    } else {
+      showSignedOut();
+    }
+  };
   const init = () => {
     const form = document.getElementById("account-auth-form");
     const displayField = document.getElementById("account-display-field");
@@ -223,8 +277,8 @@
     document.getElementById("account-signout").addEventListener("click", signOut);
     updateMode();
     renderDashboard(null);
-    getValidSession().then(session => { if (session) { showSignedIn(session); loadDashboard(session).catch(error => message(error.message, "error")); } else showSignedOut(); }).catch(() => showSignedOut());
+    initializeAuth().catch(() => showSignedOut());
   };
   init();
-  window.FremiumSiteAccount = { getConfig, setConfig, signIn, signUp, signOut, loadDashboard, getSession };
+  window.FremiumSiteAccount = { getConfig, setConfig, signIn, signUp, signOut, loadDashboard, getSession, verifyAuthCallback };
 })();

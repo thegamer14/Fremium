@@ -11,10 +11,11 @@ Try the self-contained GitHub Pages demo: [fremium demo](https://thegamer14.gith
 Fremium can sync private listening events and Queue Intelligence summaries to a Supabase-backed account. The website then shows the user’s current song, recent activity, top tracks, lifetime listening totals, and QI scores.
 
 1. Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL Editor.
-2. The public project URL and publishable key are bundled in [`fremium-account-config.js`](fremium-account-config.js) and [`docs/account-config.js`](docs/account-config.js); normal users do not need to configure them.
-3. Open the main **Fremium** page and create an account with a username, email, and password.
-4. Use **Sync now** or leave automatic sync enabled.
-5. Open the website and sign in with the same email and password.
+2. In Supabase **Authentication → URL Configuration**, set **Site URL** and add the same value under **Redirect URLs**: `https://thegamer14.github.io/Fremium/`.
+3. The public project URL and publishable key are bundled in [`fremium-account-config.js`](fremium-account-config.js) and [`docs/account-config.js`](docs/account-config.js); normal users do not need to configure them.
+4. Open the main **Fremium** page and create an account with a username, email, and password.
+5. Use **Sync now** or leave automatic sync enabled.
+6. Open the website and sign in with the same email and password.
 
 The publishable key is public by design; row-level security restricts profile, event, and QI snapshot access to the authenticated owner. Never put the Supabase secret key in the app, site, or repository. Fremium does not ask for or store a Spotify password. Access and refresh tokens remain in the local app/browser session, and the account is not a substitute for Spotify OAuth.
 
