@@ -118,7 +118,7 @@ The AI tab understands natural-language references such as:
 - `Play the Roadtrip playlist`
 - A pasted Spotify playlist link
 
-Playlist names are searched in your Spotify library first, then public Spotify playlist results. Playlist tracks are queued in playlist order and still use Fremium's duplicate and AI-history filtering.
+"Playlist Arn't Working At The time of this writing"
 
 ## Queue Intelligence Saves
 
