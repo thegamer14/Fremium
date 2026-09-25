@@ -1201,13 +1201,10 @@ function FremiumWindow({ isOpen, onClose }) {
 function FremiumAccountPanel() {
   const runtime = window.FremiumAccount;
   const initial = runtime?.get?.() || {};
-  const config = runtime?.getConfig?.() || {};
   const [account, setAccount] = useState(() => initial);
-  const [url, setUrl] = useState(config.supabaseUrl || "");
-  const [anonKey, setAnonKey] = useState(config.supabaseAnonKey || "");
   const [email, setEmail] = useState(initial.user?.email || "");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState(initial.user?.user_metadata?.display_name || "");
+  const [displayName, setDisplayName] = useState(initial.user?.user_metadata?.username || initial.user?.user_metadata?.display_name || "");
   const [mode, setMode] = useState("signin");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
@@ -1236,9 +1233,12 @@ function FremiumAccountPanel() {
       setBusy(false);
     }
   };
-  const saveConfig = () => run(() => runtime.configure(url, anonKey), "Supabase connection saved locally");
   const submitAuth = event => {
     event.preventDefault();
+    if (!email.trim() || !password || (mode === "signup" && !displayName.trim())) {
+      setStatus({ ok: false, text: mode === "signup" ? "Username, email, and password are required" : "Email and password are required" });
+      return;
+    }
     const action = mode === "signup" ? runtime.signUp(email, password, displayName) : runtime.signIn(email, password);
     run(action, result => mode === "signup" ? (result?.requiresConfirmation ? "Check your email to confirm the account" : "Account created") : "Signed in");
     setPassword("");
@@ -1247,22 +1247,13 @@ function FremiumAccountPanel() {
     label,
     react.createElement("input", Object.assign({ className: "fremium-input", type, value, onChange: event => setter(event.target.value) }, extra))
   );
-  const configured = Boolean(account.configured);
   const signedIn = Boolean(account.user);
-  const userName = account.user?.user_metadata?.display_name || account.user?.email || "Fremium listener";
+  const userName = account.user?.user_metadata?.username || account.user?.user_metadata?.display_name || account.user?.email || "Fremium listener";
   const lastSync = account.lastSync ? new Date(account.lastSync).toLocaleString() : "Not synced yet";
   if (!runtime) return react.createElement("div", { className: "fremium-card fremium-account-panel" }, react.createElement("h3", null, "Account sync"), react.createElement("div", { className: "fremium-status err" }, "Account runtime unavailable"));
   return react.createElement("div", { className: "fremium-card fremium-account-panel" },
     react.createElement("h3", null, "Fremium account"),
-    react.createElement("p", { className: "fremium-hint" }, "Connect a private Supabase account to sync listening history and Queue Intelligence summaries to the Fremium website."),
-    react.createElement("details", { className: "fremium-account-settings", open: !configured },
-      react.createElement("summary", null, "Supabase connection"),
-      react.createElement("div", { className: "fremium-form" },
-        field("Project URL", "url", url, setUrl, { placeholder: "https://your-project.supabase.co" }),
-        field("Public anon key", "password", anonKey, setAnonKey, { placeholder: "Publishable anon key", autoComplete: "off" }),
-        react.createElement("div", { className: "fremium-actions" }, react.createElement("button", { className: "fremium-btn", type: "button", onClick: saveConfig, disabled: busy }, "Save connection"))
-      )
-    ),
+    react.createElement("p", { className: "fremium-hint" }, "Create an account to sync your listening history and Queue Intelligence summaries to the Fremium website."),
     signedIn ? react.createElement(react.Fragment, null,
       react.createElement("div", { className: "fremium-account-user" },
         react.createElement("strong", null, userName),
@@ -1281,16 +1272,16 @@ function FremiumAccountPanel() {
     ) : react.createElement(react.Fragment, null,
       react.createElement("div", { className: "fremium-form" },
         field("Email", "email", email, setEmail, { placeholder: "you@example.com", autoComplete: "email" }),
-        field("Password", "password", password, setPassword, { placeholder: "Your password", autoComplete: "current-password" }),
-        mode === "signup" ? field("Display name", "text", displayName, setDisplayName, { placeholder: "Optional", autoComplete: "name" }) : null,
+        field("Password", "password", password, setPassword, { placeholder: "Your password", autoComplete: "current-password", required: true }),
+        mode === "signup" ? field("Username", "text", displayName, setDisplayName, { placeholder: "Choose a username", autoComplete: "username", required: true }) : null,
         react.createElement("div", { className: "fremium-actions" },
-          react.createElement("button", { className: "fremium-btn primary", type: "button", onClick: submitAuth, disabled: busy || !configured }, mode === "signup" ? "Create account" : "Sign in"),
+          react.createElement("button", { className: "fremium-btn primary", type: "button", onClick: submitAuth, disabled: busy || !account.configured }, mode === "signup" ? "Create account" : "Sign in"),
           react.createElement("button", { className: "fremium-btn", type: "button", onClick: () => setMode(value => value === "signin" ? "signup" : "signin"), disabled: busy }, mode === "signup" ? "Use sign in" : "Create account")
         )
       )
     ),
     status ? react.createElement("div", { className: `fremium-status ${status.ok ? "ok" : "err"}` }, status.text) : null,
-    react.createElement("p", { className: "fremium-account-note" }, "Only the public anon key is needed. Access and refresh tokens stay on this device, and row-level security keeps synced data private to your account.")
+    react.createElement("p", { className: "fremium-account-note" }, "Your username is your public Fremium profile name. Access and refresh tokens stay on this device, and row-level security keeps synced listening data private to your account.")
   );
 }
 

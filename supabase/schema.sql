@@ -2,12 +2,16 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.fremium_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
+  username text,
   display_name text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   last_seen_at timestamptz,
   client_version text
 );
+
+alter table public.fremium_profiles add column if not exists username text;
+create index if not exists fremium_profiles_username_idx on public.fremium_profiles (lower(username));
 
 create table if not exists public.fremium_sync_state (
   user_id uuid primary key references auth.users(id) on delete cascade,

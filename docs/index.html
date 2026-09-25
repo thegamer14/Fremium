@@ -261,17 +261,9 @@
         <div class="account-card">
           <div id="account-signed-out">
             <h3>Connect your Fremium account</h3>
-            <p>Use the same Supabase project in the Fremium app and here. The project URL and public anon key are stored only in this browser.</p>
-            <details class="account-settings" open>
-              <summary>Connection settings</summary>
-              <div class="account-form">
-                <label class="account-field">Supabase project URL<input id="account-url" type="url" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
-                <label class="account-field">Public anon key<input id="account-key" type="password" placeholder="Publishable anon key" autocomplete="off"></label>
-                <div class="account-form-actions"><button class="button secondary small" id="account-save-config" type="button">Save connection</button></div>
-              </div>
-            </details>
+            <p>Create a Fremium account with a username, email, and password. Your synced listening data stays private to your account.</p>
             <form class="account-form" id="account-auth-form">
-              <label class="account-field" id="account-display-field" hidden>Display name<input id="account-display-name" type="text" placeholder="How should Fremium greet you?" autocomplete="name"></label>
+              <label class="account-field" id="account-display-field" hidden>Username<input id="account-display-name" type="text" placeholder="Choose a username" autocomplete="username"></label>
               <label class="account-field">Email<input id="account-email" type="email" placeholder="you@example.com" autocomplete="email" required></label>
               <label class="account-field">Password<input id="account-password" type="password" placeholder="Your account password" autocomplete="current-password" required></label>
               <div class="account-form-actions"><button class="button primary" id="account-submit" type="submit">Sign in</button></div>
@@ -354,6 +346,7 @@
 
   <footer class="shell"><span>© <span id="year"></span> Fremium · A Spicetify CustomApp</span><span>Built for curious listeners.</span></footer>
 
+  <script src="account-config.js"></script>
   <script src="account.js"></script>
   <script>
     const scenes = {

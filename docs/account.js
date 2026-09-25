@@ -35,8 +35,8 @@
   const getConfig = () => {
     const saved = getStored(localStorage, configKey, {}) || {};
     return {
-      url: normalizeUrl(saved.url || fallbackConfig.supabaseUrl || ""),
-      key: String(saved.key || fallbackConfig.supabaseAnonKey || "").trim(),
+      url: normalizeUrl(fallbackConfig.supabaseUrl || saved.url || ""),
+      key: String(fallbackConfig.supabaseAnonKey || saved.key || "").trim(),
     };
   };
   const setConfig = config => {
@@ -59,7 +59,7 @@
   };
   const request = async (path, options = {}) => {
     const config = getConfig();
-    if (!config.url || !config.key) throw new Error("Save the Supabase connection settings first.");
+    if (!config.url || !config.key) throw new Error("Fremium account service is not configured.");
     const { method = "GET", body, auth = true, headers = {} } = options;
     const requestHeaders = { apikey: config.key, ...headers };
     if (body !== undefined) requestHeaders["Content-Type"] = "application/json";
@@ -143,7 +143,8 @@
     document.getElementById("account-signed-out").hidden = true;
     document.getElementById("account-signed-in").hidden = false;
     const user = session?.user || {};
-    document.getElementById("account-user").textContent = `${user.email || "Signed in"} · private dashboard`;
+    const label = user.user_metadata?.username || user.email || "Signed in";
+    document.getElementById("account-user").textContent = `${label} · private dashboard`;
   };
   const loadDashboard = async session => {
     const [snapshotResult, eventResult] = await Promise.all([
@@ -152,7 +153,9 @@
     ]);
     const snapshot = Array.isArray(snapshotResult) ? snapshotResult[0] : null;
     renderDashboard({ summary: snapshot?.summary, leaders: snapshot?.leaders, currentTrack: snapshot?.current_track, events: Array.isArray(eventResult) ? eventResult : [] });
-    document.getElementById("account-user").textContent = `${session?.user?.email || "Signed in"} · synced ${formatDate(snapshot?.snapshot_at)}`;
+    const user = session?.user || {};
+    const label = user.user_metadata?.username || user.email || "Signed in";
+    document.getElementById("account-user").textContent = `${label} · synced ${formatDate(snapshot?.snapshot_at)}`;
   };
   const signIn = async (email, password) => {
     const result = await request("auth/v1/token?grant_type=password", { method: "POST", auth: false, body: { email, password } });
@@ -161,8 +164,10 @@
     await loadDashboard(session);
     return session;
   };
-  const signUp = async (email, password, displayName) => {
-    const result = await request("auth/v1/signup", { method: "POST", auth: false, body: { email, password, data: { display_name: displayName || null } } });
+  const signUp = async (email, password, username) => {
+    const normalizedUsername = String(username || "").trim();
+    if (!/^[a-zA-Z0-9_-]{3,32}$/.test(normalizedUsername)) throw new Error("Username must be 3-32 characters using letters, numbers, _ or -");
+    const result = await request("auth/v1/signup", { method: "POST", auth: false, body: { email, password, data: { username: normalizedUsername, display_name: normalizedUsername } } });
     if (result?.access_token) {
       const session = storeSession(result);
       showSignedIn(session);
@@ -178,30 +183,20 @@
     renderDashboard(null);
     message("You are signed out.", "ok");
   };
-  const configFields = () => {
-    const config = getConfig();
-    document.getElementById("account-url").value = config.url;
-    document.getElementById("account-key").value = config.key;
-  };
   const init = () => {
-    configFields();
     const form = document.getElementById("account-auth-form");
     const displayField = document.getElementById("account-display-field");
+    const usernameInput = document.getElementById("account-display-name");
     const submit = document.getElementById("account-submit");
     const toggle = document.getElementById("account-toggle");
     let mode = "signin";
     const updateMode = () => {
       const signup = mode === "signup";
       displayField.hidden = !signup;
+      usernameInput.required = signup;
       submit.textContent = signup ? "Create account" : "Sign in";
       toggle.textContent = signup ? "Already have an account? Sign in" : "Need an account? Create one";
     };
-    document.getElementById("account-save-config").addEventListener("click", () => {
-      try {
-        setConfig({ url: document.getElementById("account-url").value, key: document.getElementById("account-key").value });
-        message("Connection settings saved locally.", "ok");
-      } catch (error) { message(error.message, "error"); }
-    });
     toggle.addEventListener("click", () => { mode = mode === "signin" ? "signup" : "signin"; updateMode(); });
     form.addEventListener("submit", async event => {
       event.preventDefault();
@@ -211,8 +206,8 @@
         const email = document.getElementById("account-email").value.trim();
         const password = document.getElementById("account-password").value;
         if (mode === "signup") {
-          const displayName = document.getElementById("account-display-name").value.trim();
-          const result = await signUp(email, password, displayName);
+          const username = document.getElementById("account-display-name").value.trim();
+          const result = await signUp(email, password, username);
           message(result.requiresConfirmation ? "Check your email to confirm the account, then sign in." : "Account created and dashboard loaded.", "ok");
         } else {
           await signIn(email, password);

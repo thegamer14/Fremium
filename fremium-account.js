@@ -6,7 +6,8 @@
     lastSync: "fremium:account:last-sync",
     autoSync: "fremium:account:auto-sync",
   };
-  const VERSION = "1";
+  const VERSION = "2";
+  const defaultConfig = window.FremiumAccountConfig || {};
   const LISTENING_EVENTS = new Set(["play", "repeat", "completion", "skip", "abandon", "queue_action"]);
   const listeners = new Set();
   let syncPromise = null;
@@ -31,8 +32,8 @@
   };
   const normalizeUrl = value => String(value || "").trim().replace(/\/+$/, "");
   const getConfig = () => ({
-    supabaseUrl: normalizeUrl(read(KEYS.url)),
-    supabaseAnonKey: String(read(KEYS.anonKey) || "").trim(),
+    supabaseUrl: normalizeUrl(defaultConfig.supabaseUrl || read(KEYS.url)),
+    supabaseAnonKey: String(defaultConfig.supabaseAnonKey || read(KEYS.anonKey) || "").trim(),
   });
   const initialSession = readJson(KEYS.session, null);
   let state = {
@@ -85,7 +86,7 @@
   };
   const request = async (path, options = {}) => {
     const config = getConfig();
-    if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error("Configure Supabase first");
+    if (!config.supabaseUrl || !config.supabaseAnonKey) throw new Error("Fremium account service is not configured");
     const { method = "GET", body, auth = true, headers = {} } = options;
     const requestHeaders = { apikey: config.supabaseAnonKey, ...headers };
     if (body !== undefined) requestHeaders["Content-Type"] = "application/json";
@@ -153,11 +154,13 @@
     clearSession();
     setState({ error: null });
   };
-  const signUp = async (email, password, displayName) => {
+  const signUp = async (email, password, username) => {
+    const normalizedUsername = String(username || "").trim();
+    if (!/^[a-zA-Z0-9_-]{3,32}$/.test(normalizedUsername)) throw new Error("Username must be 3-32 characters using letters, numbers, _ or -");
     const result = await request("auth/v1/signup", {
       method: "POST",
       auth: false,
-      body: { email: String(email || "").trim(), password, data: { display_name: String(displayName || "").trim() || null } },
+      body: { email: String(email || "").trim(), password, data: { username: normalizedUsername, display_name: normalizedUsername } },
     });
     if (result?.access_token) {
       storeSession(result);
@@ -258,7 +261,8 @@
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: [{
         user_id: user.id,
-        display_name: user.user_metadata?.display_name || String(user.email || "").split("@")[0] || "Fremium listener",
+        username: user.user_metadata?.username || user.user_metadata?.display_name || String(user.email || "").split("@")[0] || "Fremium listener",
+        display_name: user.user_metadata?.display_name || user.user_metadata?.username || String(user.email || "").split("@")[0] || "Fremium listener",
         last_seen_at: now,
         updated_at: now,
         client_version: VERSION,

@@ -10,14 +10,13 @@ Try the self-contained GitHub Pages demo: [fremium demo](https://thegamer14.gith
 
 Fremium can sync private listening events and Queue Intelligence summaries to a Supabase-backed account. The website then shows the user’s current song, recent activity, top tracks, lifetime listening totals, and QI scores.
 
-1. Create a Supabase project.
-2. Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL Editor.
-3. Copy the project URL and publishable anon key from Supabase API settings.
-4. Open the main **Fremium** page and save those connection values in the **Fremium account** panel.
-5. Create an account or sign in, then use **Sync now** or leave automatic sync enabled.
-6. Open the website, enter the same connection values, and sign in with the same email and password.
+1. Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL Editor.
+2. The public project URL and publishable key are bundled in [`fremium-account-config.js`](fremium-account-config.js) and [`docs/account-config.js`](docs/account-config.js); normal users do not need to configure them.
+3. Open the main **Fremium** page and create an account with a username, email, and password.
+4. Use **Sync now** or leave automatic sync enabled.
+5. Open the website and sign in with the same email and password.
 
-The anon key is public by design; row-level security restricts profile, event, and QI snapshot access to the authenticated owner. Fremium does not ask for or store a Spotify password. Access and refresh tokens remain in the local app/browser session, and the account is not a substitute for Spotify OAuth.
+The publishable key is public by design; row-level security restricts profile, event, and QI snapshot access to the authenticated owner. Never put the Supabase secret key in the app, site, or repository. Fremium does not ask for or store a Spotify password. Access and refresh tokens remain in the local app/browser session, and the account is not a substitute for Spotify OAuth.
 
 Synced tables are private and include `fremium_profiles`, `fremium_sync_state`, `fremium_listening_events`, and `fremium_qi_snapshots`. The app sends aggregate QI summaries and current-track explanations rather than the full learned profile.
 
@@ -161,8 +160,10 @@ Live QI resets when Spotify restarts unless a profile, history, or backup file i
 - `style.css` — Spotify-compatible window and launcher styling
 - `manifest.json` — Spicetify app metadata
 - `fremium-qi-extension.js` — live Queue Intelligence runtime, weighted learning scores, and conditional live-file autosave
+- `fremium-account-config.js` — public Supabase project configuration for the app
 - `fremium-account.js` — Supabase authentication and private account sync bridge
 - `supabase/schema.sql` — private account, listening-event, and QI snapshot tables with row-level security
+- `docs/account-config.js` — public Supabase project configuration for the website
 - `docs/account.js` — website account sign-in and personalized dashboard
 - `queue-training.js` — legacy local Queue Intelligence data model
 - `queue-training-panel.js` — legacy Queue Intelligence data panel
