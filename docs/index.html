@@ -55,7 +55,8 @@
     .player-top, .player-meta, .score-line, .bar-line, .install-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .player-top { color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .12em; }
     .live { color: var(--green); }
-    .album-art { display: grid; place-items: center; height: 220px; margin: 18px 0; border-radius: 16px; background: radial-gradient(circle at 65% 30%, #ffbd82, transparent 25%), linear-gradient(135deg, #3c1e16, #101b1b 60%, #080908); font-size: 4rem; font-weight: 900; letter-spacing: -.12em; color: rgba(255,247,239,.86); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+    .album-art { display: grid; place-items: center; height: 220px; margin: 18px 0; overflow: hidden; border-radius: 16px; background: radial-gradient(circle at 65% 30%, #ffbd82, transparent 25%), linear-gradient(135deg, #3c1e16, #101b1b 60%, #080908); font-size: 4rem; font-weight: 900; letter-spacing: -.12em; color: rgba(255,247,239,.86); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+    .album-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .player h3 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
     .player-meta { margin-top: 5px; color: var(--muted); font-size: .84rem; }
     .score-line { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -213,7 +214,7 @@
       <div class="hero-art" aria-label="Fremium player preview">
         <div class="player">
           <div class="player-top"><span>Now playing · Fremium</span><span class="live">● LIVE</span></div>
-          <div class="album-art">QI</div>
+          <div class="album-art"><img src="https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/6e/96/04/6e9604a8-3270-f86e-0c47-0127141545c3/17UM1IM17084.rgb.jpg/600x600bb.jpg" alt="Perception album cover" onerror="this.remove(); this.parentElement.textContent='QI';"></div>
           <h3>Let You Down</h3>
           <div class="player-meta"><span>NF</span><span>Current session</span></div>
           <div class="score-line"><div class="score">87 <small>/ 100</small></div><div class="confidence">91% confidence</div></div>
