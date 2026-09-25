@@ -1125,6 +1125,7 @@ function FremiumWindow({ isOpen, onClose }) {
 
   const tabList = [
     { id: "dashboard", label: "Dashboard" },
+    { id: "songqi", label: "Song QI" },
     { id: "lastfm", label: "Last.fm" },
     { id: "streaks", label: "Streaks" },
     { id: "completionist", label: "Completionist" },
@@ -1177,6 +1178,7 @@ function FremiumWindow({ isOpen, onClose }) {
       "div",
       { className: "fremium-win-body" },
       tab === "dashboard" ? react.createElement(DashboardTab, { onGoLfm: () => setTab("lastfm") }) :
+      tab === "songqi" ? react.createElement(SongQiTab, null) :
       tab === "lastfm" ? react.createElement(LastFmTab, null) :
       tab === "streaks" ? react.createElement(StreaksTab, { onGoLfm: () => setTab("lastfm") }) :
       tab === "completionist" ? react.createElement(CompletionistTab, { onGoLfm: () => setTab("lastfm") }) :
@@ -1190,6 +1192,62 @@ function FremiumWindow({ isOpen, onClose }) {
     ) : null,
     // resize handle
     !minimized ? react.createElement("div", { className: "fremium-resize", onMouseDown: onResizeDown, title: "Drag to resize" }) : null
+  );
+}
+
+function SongQiTab() {
+  const runtime = window.FremiumLiveQI;
+  const [track, setTrack] = useState(() => Player.data?.item || null);
+  const [qi, setQi] = useState(() => runtime?.get?.() || null);
+  useEffect(() => {
+    const update = () => setTrack(Player.data?.item || null);
+    try { Player.addEventListener("songchange", update); Player.addEventListener("onplaypause", update); } catch {}
+    const unsubscribe = runtime?.subscribe?.(value => setQi(value));
+    return () => {
+      unsubscribe?.();
+      try { Player.removeEventListener("songchange", update); Player.removeEventListener("onplaypause", update); } catch {}
+    };
+  }, [runtime]);
+  const uri = track?.uri || "";
+  const context = runtime?.currentContext?.() || "global";
+  const learnedTrack = qi?.learned?.tracks?.tracks?.[uri] || qi?.tracks?.tracks?.[uri] || null;
+  const local = learnedTrack?.contexts?.[context] || learnedTrack || {};
+  const details = uri ? runtime?.explain?.(uri, context) : null;
+  const artist = track?.artists?.map(value => value?.name).filter(Boolean).join(", ") || track?.metadata?.artist_name || "Unknown artist";
+  const album = track?.album?.name || track?.metadata?.album_name || "Unknown album";
+  const components = details?.components || {};
+  const labels = { replay: "Replay", completion: "Completion", position: "Position", recent: "Recent", playlist: "Playlist", artist: "Artist", genre: "Genre", session: "Session", flow: "Flow", skip: "Skip penalty", recentlyPlayed: "Recently played", queueDuplicate: "Queue duplicate" };
+  const format = value => `${Number(value || 0) >= 0 ? "+" : ""}${Number(value || 0).toFixed(1)}`;
+  return react.createElement("div", { className: "fremium-tab" },
+    react.createElement("h3", null, "Current Song QI"),
+    !track ? react.createElement("div", { className: "fremium-empty" }, "Play a song to see its Queue Intelligence profile.") : react.createElement(react.Fragment, null,
+      react.createElement("div", { className: "fremium-row" },
+        track?.album?.images?.[0]?.url ? react.createElement("img", { src: track.album.images[0].url, style: { width: 48, height: 48, borderRadius: 6, objectFit: "cover" } }) : null,
+        react.createElement("div", { className: "fremium-row-main" },
+          react.createElement("div", { className: "fremium-row-title" }, track.name || "Unknown track"),
+          react.createElement("div", { className: "fremium-row-sub" }, `${artist} • ${album}`)
+        ),
+        react.createElement("span", { className: "fremium-pill" }, details ? `QI ${details.score}` : "New")
+      ),
+      react.createElement("div", { className: "fremium-grid2", style: { marginTop: 8 } },
+        react.createElement(StatCard, { label: "QI score", value: details ? String(details.score) : "—", sub: details ? `${details.confidence}% confidence` : "Learning" }),
+        react.createElement(StatCard, { label: "Plays", value: String(local.plays || 0), sub: `${local.skips || 0} skips` }),
+        react.createElement(StatCard, { label: "Replays", value: String(local.repeats || 0), sub: `${local.completions || 0} completions` }),
+        react.createElement(StatCard, { label: "Abandoned", value: String(local.abandonments || 0), sub: `${local.partialStops || 0} partial stops` }),
+        react.createElement(StatCard, { label: "Position", value: local.positionSamples ? `${Math.round((local.positionTotal || 0) / local.positionSamples)}` : "—", sub: "Average queue position" }),
+        react.createElement(StatCard, { label: "Playlist", value: String(qi?.learned?.contextProfiles?.contexts?.[context]?.plays || 0), sub: context === "global" ? "All listening" : "Current context" }),
+        react.createElement(StatCard, { label: "Lifetime", value: String(Math.round(learnedTrack?.lifetimeScore || 50)), sub: "Preference score" }),
+        react.createElement(StatCard, { label: "Recent", value: String(Math.round(learnedTrack?.recentScore || 50)), sub: "Recency-weighted score" })
+      ),
+      details ? react.createElement("div", { style: { marginTop: 12 } },
+        react.createElement("h4", null, "Why this score?"),
+        react.createElement("div", { className: "fremium-list small" }, (details.reasons || []).map((reason, index) => react.createElement("div", { className: "fremium-row", key: `${reason}-${index}` }, react.createElement("span", null, reason))))
+      ) : null,
+      Object.keys(components).length ? react.createElement("div", { style: { marginTop: 12 } },
+        react.createElement("h4", null, "Score breakdown"),
+        react.createElement("div", { className: "fremium-list small" }, Object.entries(components).map(([key, value]) => react.createElement("div", { className: "fremium-row", key }, react.createElement("span", null, labels[key] || key), react.createElement("strong", null, format(value)))))
+      ) : null
+    )
   );
 }
 
