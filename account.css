@@ -40,7 +40,7 @@ a { color: inherit; text-decoration: none; }
 .account-form-actions, .account-dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }
 .account-switch { margin: 12px 0; color: var(--muted); font-size: .8rem; }
 .account-switch button { padding: 0; border: 0; color: var(--orange-2); background: transparent; cursor: pointer; font: inherit; }
-.account-demo { width: 100%; margin-top: 4px; }
+.account-secondary-action { width: 100%; margin-top: 4px; }
 .account-note { margin: 14px 0 0 !important; color: #776b63 !important; font-size: .74rem !important; }
 .account-message { margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: .78rem; }
 .account-message.ok { border-color: rgba(185,231,105,.3); color: var(--green); background: rgba(185,231,105,.08); }
@@ -50,7 +50,6 @@ a { color: inherit; text-decoration: none; }
 .account-dashboard-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .account-dashboard-head h3 { margin: 5px 0 0; }
 .account-live { padding: 5px 8px; border: 1px solid rgba(185,231,105,.25); border-radius: 999px; color: var(--green); font-size: .65rem; font-weight: 850; letter-spacing: .1em; }
-.account-demo-banner { margin-bottom: 12px; padding: 7px 10px; border: 1px solid rgba(255,155,95,.25); border-radius: 8px; color: var(--orange-2); background: rgba(255,107,44,.08); font-size: .75rem; }
 .account-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 18px; }
 .account-stat { min-width: 0; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); }
 .account-stat span, .account-stat small { display: block; color: var(--muted); font-size: .67rem; }
