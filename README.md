@@ -13,7 +13,7 @@ Fremium can sync private listening events and Queue Intelligence summaries to a 
 1. Create a Supabase project.
 2. Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL Editor.
 3. Copy the project URL and publishable anon key from Supabase API settings.
-4. Open the **Account** tab in Fremium and save those connection values.
+4. Open the main **Fremium** page and save those connection values in the **Fremium account** panel.
 5. Create an account or sign in, then use **Sync now** or leave automatic sync enabled.
 6. Open the website, enter the same connection values, and sign in with the same email and password.
 

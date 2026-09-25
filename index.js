@@ -1054,7 +1054,10 @@ function addTrainingEvent(event) {
 
 // ---------- Floating Window Component ----------
 function FremiumWindow({ isOpen, onClose }) {
-  const [tab, setTab] = useState(() => LocalStorage.get(LS.winTab) || "dashboard");
+  const [tab, setTab] = useState(() => {
+    const savedTab = LocalStorage.get(LS.winTab);
+    return savedTab === "account" || !savedTab ? "dashboard" : savedTab;
+  });
   const [pos, setPos] = useState(() => loadJson(LS.winPos, { x: Math.max(40, window.innerWidth - 760), y: 80 }));
   const [size, setSize] = useState(() => loadJson(LS.winSize, { w: 680, h: 520 }));
   const [drag, setDrag] = useState(null); // {dx,dy}
@@ -1125,7 +1128,6 @@ function FremiumWindow({ isOpen, onClose }) {
 
   const tabList = [
     { id: "dashboard", label: "Dashboard" },
-    { id: "account", label: "Account" },
     { id: "songqi", label: "Song QI" },
     { id: "lastfm", label: "Last.fm" },
     { id: "streaks", label: "Streaks" },
@@ -1179,7 +1181,6 @@ function FremiumWindow({ isOpen, onClose }) {
       "div",
       { className: "fremium-win-body" },
       tab === "dashboard" ? react.createElement(DashboardTab, { onGoLfm: () => setTab("lastfm") }) :
-      tab === "account" ? react.createElement(AccountTab, null) :
       tab === "songqi" ? react.createElement(SongQiTab, null) :
       tab === "lastfm" ? react.createElement(LastFmTab, null) :
       tab === "streaks" ? react.createElement(StreaksTab, { onGoLfm: () => setTab("lastfm") }) :
@@ -1197,7 +1198,7 @@ function FremiumWindow({ isOpen, onClose }) {
   );
 }
 
-function AccountTab() {
+function FremiumAccountPanel() {
   const runtime = window.FremiumAccount;
   const initial = runtime?.get?.() || {};
   const config = runtime?.getConfig?.() || {};
@@ -1250,8 +1251,8 @@ function AccountTab() {
   const signedIn = Boolean(account.user);
   const userName = account.user?.user_metadata?.display_name || account.user?.email || "Fremium listener";
   const lastSync = account.lastSync ? new Date(account.lastSync).toLocaleString() : "Not synced yet";
-  if (!runtime) return react.createElement("div", { className: "fremium-tab" }, react.createElement("h3", null, "Account sync"), react.createElement("div", { className: "fremium-status err" }, "Account runtime unavailable"));
-  return react.createElement("div", { className: "fremium-tab" },
+  if (!runtime) return react.createElement("div", { className: "fremium-card fremium-account-panel" }, react.createElement("h3", null, "Account sync"), react.createElement("div", { className: "fremium-status err" }, "Account runtime unavailable"));
+  return react.createElement("div", { className: "fremium-card fremium-account-panel" },
     react.createElement("h3", null, "Fremium account"),
     react.createElement("p", { className: "fremium-hint" }, "Connect a private Supabase account to sync listening history and Queue Intelligence summaries to the Fremium website."),
     react.createElement("details", { className: "fremium-account-settings", open: !configured },
@@ -2726,6 +2727,7 @@ function App() {
         )
       )
     ),
+    react.createElement(FremiumAccountPanel, null),
     react.createElement(FremiumQiPanel, null)
   );
 }

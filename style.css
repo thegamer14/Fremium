@@ -56,6 +56,7 @@
 .fremium-qi-leaders,.fremium-qi-events{ margin-top:14px; }
 .fremium-qi-event{ display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:.8rem; }
 .fremium-qi-event span{ color:var(--spice-subtext); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fremium-account-panel{ margin-top:18px; }
 .fremium-account-settings{ margin:12px 0; border:1px solid rgba(255,255,255,.12); border-radius:10px; background:rgba(255,255,255,.04); }
 .fremium-account-settings summary{ padding:10px 12px; color:var(--spice-button-active,#1db954); cursor:pointer; font-size:.8rem; font-weight:700; }
 .fremium-account-settings[open] summary{ border-bottom:1px solid rgba(255,255,255,.08); }
