@@ -252,12 +252,14 @@
     const displayField = document.getElementById("account-display-field");
     const usernameInput = document.getElementById("account-display-name");
     const submit = document.getElementById("account-submit");
+    const resendButton = document.getElementById("account-resend");
     const toggle = document.getElementById("account-toggle");
     let mode = "signin";
     const updateMode = () => {
       const signup = mode === "signup";
       displayField.hidden = !signup;
       usernameInput.required = signup;
+      resendButton.hidden = !signup;
       submit.textContent = signup ? "Create account" : "Sign in";
       toggle.textContent = signup ? "Already have an account? Sign in" : "Need an account? Create one";
     };
