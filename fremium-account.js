@@ -296,7 +296,7 @@
     const context = window.FremiumLiveQI?.currentContext?.() || "global";
     const currentTrack = getCurrentTrack();
     const explanation = currentTrack?.uri ? window.FremiumLiveQI?.explain?.(currentTrack.uri, context) : null;
-    const current = currentTrack ? { ...currentTrack, qiScore: explanation?.score ?? null, qiConfidence: explanation?.confidence ?? null, qiReasons: explanation?.reasons || [] } : null;
+    const current = currentTrack ? { ...currentTrack, qiScore: explanation?.score ?? null, qiConfidence: explanation?.confidence ?? null, qiReasons: explanation?.reasons || [], qiComponents: explanation?.components || {}, qiContext: explanation?.context || context, qiTime: explanation?.time || null } : null;
     await request("rest/v1/fremium_qi_snapshots?on_conflict=user_id,session_id", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
@@ -397,10 +397,10 @@
     })();
     return syncPromise;
   };
-  const scheduleSync = () => {
+  const scheduleSync = (delay = 15000) => {
     if (suppressAutoSync || !state.autoSync || !state.user) return;
     if (syncTimer) clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => { syncTimer = null; sync().catch(() => {}); }, 15000);
+    syncTimer = setTimeout(() => { syncTimer = null; sync().catch(() => {}); }, delay);
   };
   const setAutoSync = value => {
     const enabled = Boolean(value);
@@ -424,7 +424,7 @@
     if (!qiUnsubscribe && window.FremiumLiveQI?.subscribe) qiUnsubscribe = window.FremiumLiveQI.subscribe(() => scheduleSync());
     if (!playerListenerInstalled && window.Spicetify?.Player?.addEventListener) {
       playerListenerInstalled = true;
-      try { window.Spicetify.Player.addEventListener("songchange", () => scheduleSync()); } catch {}
+      try { window.Spicetify.Player.addEventListener("songchange", () => scheduleSync(1000)); } catch {}
     }
   };
 

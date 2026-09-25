@@ -10,7 +10,7 @@ Open the private dashboard separately: [Fremium account](https://thegamer14.gith
 
 ## Fremium Account Sync
 
-Fremium can sync private listening events and Queue Intelligence summaries to a Supabase-backed account. The website then shows the user’s current song, recent activity, top tracks, lifetime listening totals, and QI scores.
+Fremium can sync private listening events and Queue Intelligence summaries to a Supabase-backed account. The website then shows the user’s current song, recent activity, top tracks, lifetime listening totals, and QI scores, and refreshes the live dashboard every five seconds while signed in.
 
 1. Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL Editor.
 2. In Supabase **Authentication → URL Configuration**, set **Site URL** and add the same value under **Redirect URLs**: `https://thegamer14.github.io/Fremium/`.
