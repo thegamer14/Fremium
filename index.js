@@ -1246,7 +1246,7 @@ function AccountTab() {
     label,
     react.createElement("input", Object.assign({ className: "fremium-input", type, value, onChange: event => setter(event.target.value) }, extra))
   );
-  const configured = account.configured || Boolean(url && anonKey);
+  const configured = Boolean(account.configured);
   const signedIn = Boolean(account.user);
   const userName = account.user?.user_metadata?.display_name || account.user?.email || "Fremium listener";
   const lastSync = account.lastSync ? new Date(account.lastSync).toLocaleString() : "Not synced yet";
