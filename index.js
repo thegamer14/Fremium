@@ -2451,11 +2451,12 @@ function FremiumQiPanel() {
   const summary = data?.summary || {};
   const leaders = data?.leaders || [];
   const events = data?.history?.events || [];
+  const realtime = data?.realtime || {};
   return react.createElement("div", { className: "fremium-card fremium-qi-panel" },
     react.createElement("div", { className: "fremium-qi-header" },
       react.createElement("div", null,
         react.createElement("h3", null, "Queue Intelligence"),
-        react.createElement("p", { className: "fremium-hint" }, "Live session data stays in memory. Save snapshots to C:\\Free Saves or import JSON backups.")
+        react.createElement("p", { className: "fremium-hint" }, "Live learning stays in memory. Connect C:\\Free Saves to continuously overwrite fremium-qi-live.json; without a folder, nothing is written in real time.")
       ),
       react.createElement("span", { className: "fremium-pill" }, "LIVE")
     ),
@@ -2464,9 +2465,10 @@ function FremiumQiPanel() {
         react.createElement(StatCard, { label: "Events", value: String(summary.total || 0), sub: "This session" }),
         react.createElement(StatCard, { label: "Plays", value: String(summary.plays || 0), sub: `${summary.tracks || 0} tracks` }),
         react.createElement(StatCard, { label: "Skips", value: String(summary.skips || 0), sub: `${summary.completions || 0} completed` }),
-        react.createElement(StatCard, { label: "Queue actions", value: String(summary.queueActions || 0), sub: "Observed changes" })
+        react.createElement(StatCard, { label: "Queue actions", value: String(summary.queueActions || 0), sub: "Observed changes" }),
+        react.createElement(StatCard, { label: "Abandoned", value: String(summary.abandonments || 0), sub: `${summary.immediateSkips || 0} immediate skips` })
       ),
-      react.createElement("div", { className: "fremium-qi-path" }, folderConnected ? "Connected: C:\\Free Saves" : "Folder not connected: C:\\Free Saves"),
+      react.createElement("div", { className: "fremium-qi-path" }, folderConnected ? `Connected: C:\\Free Saves • Live autosave: ${realtime.file || "fremium-qi-live.json"}` : "Folder not connected: C:\\Free Saves • Memory only"),
       react.createElement("div", { className: "fremium-actions" },
         react.createElement("button", { className: "fremium-btn", onClick: () => run(() => runtime.chooseDirectory?.(), "Free Saves folder connected") }, "Choose C:\\Free Saves"),
         react.createElement("button", { className: "fremium-btn primary", onClick: () => run(() => runtime.saveSnapshot?.(), fileName => `Saved ${fileName}`), disabled: !folderConnected }, "Save Snapshot"),

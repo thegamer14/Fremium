@@ -99,14 +99,24 @@ Playlist names are searched in your Spotify library first, then public Spotify p
 
 ## Queue Intelligence Saves
 
-The base Fremium page includes a live Queue Intelligence panel. It keeps the current session in memory and does not continuously write QI data to LocalStorage. Use **Choose C:\\Free Saves** once to grant Spotify folder access, then use:
+The base Fremium page includes a live Queue Intelligence panel. It keeps the current session in memory and does not write QI data to LocalStorage. Learning includes:
+
+- Consecutive-skip penalties, skip decay, weighted replay and completion boosts
+- Early/late queue-position learning, abandonment tracking, and skip-timing buckets
+- Separate current-session, recent, and lifetime preference scores
+- Recent behavior is weighted more heavily while lifetime preferences remain available
+- Queue ranking and similar-track suggestions use the combined learning signals
+
+Use **Choose C:\\Free Saves** once to grant Spotify folder access. When a folder is connected, Fremium continuously overwrites `fremium-qi-live.json` in that folder after learning events. When no folder is connected, real-time file saving is disabled and QI remains memory-only.
+
+Manual controls remain available:
 
 - **Save Snapshot** — writes a timestamped JSON file to `C:\Free Saves`
 - **Download JSON** — downloads a copy through Spotify/browser downloads
 - **Import JSON** — imports one or more saved JSON files; enable replace mode to restore one snapshot instead of merging
 - **Snapshot Queue** — records the current queue as a live event
 
-Live QI resets when Spotify restarts unless you save or import a snapshot.
+Live QI resets when Spotify restarts unless a live file or snapshot is imported.
 
 ## Project Files
 
@@ -114,11 +124,11 @@ Live QI resets when Spotify restarts unless you save or import a snapshot.
 - `fremium-overlay.js` — persistent launcher extension
 - `style.css` — Spotify-compatible window and launcher styling
 - `manifest.json` — Spicetify app metadata
-- `fremium-qi-extension.js` — live in-memory Queue Intelligence runtime and snapshot file controls
+- `fremium-qi-extension.js` — live Queue Intelligence runtime, weighted learning scores, and conditional live-file autosave
 - `queue-training.js` — legacy local Queue Intelligence data model
 - `queue-training-panel.js` — legacy Queue Intelligence data panel
 
-Queue Intelligence is live in memory and is not continuously written to LocalStorage. Use the base-page Queue Intelligence panel to save timestamped JSON snapshots to `C:\Free Saves`, download a copy, or import one or more JSON files. Spotify must grant folder access the first time you choose the folder.
+Queue Intelligence is live in memory and is not written to LocalStorage. With a selected Free Saves folder, the extension continuously overwrites `fremium-qi-live.json`; without one, it performs no real-time file writes. Use the base-page panel for manual snapshots, downloads, and imports. Spotify must grant folder access the first time you choose the folder.
 
 ## Development
 
